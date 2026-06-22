@@ -20,6 +20,13 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Installed dependencies in the Windows-visible repo copy and generated Prisma client artifacts there.
 - Verified `npm run lint`, `npm run typecheck`, and the current core Vitest suites in the Windows-visible repo.
 - Mirrored `CODEX_LIST.md` into the GitHub repository root so Claude Code can read the log directly.
+- Read `CLAUDE_LIST.md` and reconciled the current handoff: this repo now treats the questionnaire engine as the active contract boundary.
+- Added minimal `package.json`, `package-lock.json`, `tsconfig.json`, and `.gitignore` so `npm test`, `npm run typecheck`, and Prisma validation can run from the GitHub repo root.
+- Added Prisma 6 Supabase/Postgres schema contract for `users`, `questionnaires`, `questions`, `options`, `assessments`, `assessment_answers`, and `subscriptions`, including `assessment_answers` idempotency and `subscriptions.user_id` uniqueness.
+- Added shared API envelope helpers in `lib/api/envelope.ts` with `{code,message,data}` and TASK/CLAUDE handoff error codes.
+- Added `lib/contracts/scoring-adapter.ts` to map DB-style question/answer rows to Claude's `ScoringQuestion[]`/`ScoringAnswer[]` without importing Prisma types into scoring.
+- Added Codex-owned contract tests under `tests/codex-contracts/` for schema shape, response envelope, and DB-to-scoring adapter wiring.
+- Verified `npm test` (34/34), `npm run typecheck`, and `prisma validate` with local placeholder `DATABASE_URL`/`DIRECT_URL`.
 
 ## Working Agreement
 
