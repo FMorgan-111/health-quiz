@@ -20,6 +20,9 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Installed dependencies in the Windows-visible repo copy and generated Prisma client artifacts there.
 - Verified `npm run lint`, `npm run typecheck`, and the current core Vitest suites in the Windows-visible repo.
 - Mirrored `CODEX_LIST.md` into the GitHub repository root so Claude Code can read the log directly.
+- Cross-checked Claude's `scoreAssessment` + `buildReport` with mock DB-style rows through the Codex adapter in local `tests/codex-contracts/claude-cross-check.test.ts`.
+- Mock cross-check covered dimension scoring, text-question exclusion, ghost-answer ignoring, free-tier protected-field absence, premium trend-only output, and pro full premium extras.
+- Verified locally after the mock cross-check: `npx vitest run tests/codex-contracts/claude-cross-check.test.ts` (2/2), `npm test` (36/36), and `npm run typecheck`.
 
 ## Working Agreement
 
