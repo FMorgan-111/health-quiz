@@ -17,6 +17,51 @@ The derived/verification layer that doesn't depend on the DB is **built, tested 
 
 ---
 
+## ✅ DONE by Claude (local, not yet pushed) — integration tests against real DB
+
+Built against Codex's `codex/type-interface-alignment` schema + the live Supabase (migrated to the 7-table questionnaire engine via `migrate reset` + `migrate dev --name questionnaire_engine`). **All green (persistence 8 + pipeline 4 = 12).**
+
+- **`tests/integration/persistence.test.ts`** (8) — DB-level guarantees from TASK.md §3.3: idempotent answer upsert (`@@unique[assessmentId,questionId]`, repeat + concurrent → 1 row), optimistic-lock concurrent `version` advance (only one of two same-version updates wins; stale version → 0 rows = the 409 basis), cascade delete (drop user → assessments/answers gone), unique constraints (one-subscription-per-user, unique email), progress recovery (status + currentStep + answer count).
+- **`tests/integration/scoring-pipeline.test.ts`** (4) — full chain DB rows → Codex `scoring-adapter` → `scoreAssessment` → `buildReport`, per tier (free redaction, premium trend, pro peer+pdf, partial-answer = 0).
+- **`tests/integration/db.ts`** — test-only Prisma client pinned to **`DIRECT_URL` (5432)**, not the pgbouncer pooler. Reason discovered the hard way: the 6543 transaction-pooler with `connection_limit=1` collides on concurrent `Promise.all` writes across test files (prepared-statement conflicts). Tests must use the direct connection.
+- **`tests/integration/helpers.ts`** — fixtures (user/questionnaire) + cascade cleanup in `afterEach`.
+
+**Cleanup done**: deleted all superseded BMI files (`app/api/*` routes, `lib/health.ts`, `lib/serialize.ts`, `lib/session.ts`, `lib/validation.ts`) — they referenced `prisma.quizSession` which no longer exists and broke `tsc`. Live `lib/` is now: `db.ts`, `report.ts`, `scoring.ts`, `api/envelope.ts`, `contracts/scoring-adapter.ts`.
+
+### ⚠️ Known issue → TOMORROW's top todo: integration tests are SLOW
+~70–110s per file. Not a bug — pure network latency: WSL → Supabase Seoul pooler is ~150ms/round-trip × dozens of serial round-trips. Fixes planned (see Tomorrow):
+1. **Split suites** — `npm test` runs only fast unit tests (24, ~1.4s); integration moves to `npm run test:integration`, run on demand. (zero-dependency, instant relief)
+2. **CI uses a local `postgres` service container** — round-trips <1ms, so integration is fast in CI even though slow locally.
+3. (optional) Reduce round-trips via `createMany`/transactions in fixtures.
+
+---
+
+## 📅 TOMORROW — parallel plan (Claude ‖ Codex)
+
+Both still meet at the same two contracts (schema + envelope), both now committed on the codex branch. Once Codex's endpoints land, Claude's integration layer extends to true end-to-end. Independent until then.
+
+### Claude's todos (verification + infra — depend only on contracts already shipped)
+1. **Fix slow tests (top priority)**: split `npm test` (unit only) vs `npm run test:integration`; add `tests/integration/**` to an integration-only vitest project/config; keep unit suite DB-free and CI-portable.
+2. **CI — GitHub Actions** (`.github/workflows/test.yml`): `postgres:16` service container, `prisma migrate deploy` + seed, run unit + integration, README badge. This is the "engineer proves their own tests" deliverable (TASK.md §5.3) — do it early, not last.
+3. **Push today's integration tests** to a Claude branch (don't push to `main` directly while Codex's branch is in flight — open a PR or push to `claude/integration-tests` and let owner merge).
+4. **End-to-end API tests** (the moment Codex commits endpoints): import each route handler directly (App Router → `new Request()`, no supertest), assert the unified envelope `{code,message,data}` and the exact error codes (40001/40100/40300/40400/40900/50000) for each boundary in TASK.md §5.2 — unauth 401, forbidden 403, skip-step 400, missing-required 422, bad HMAC 403, idempotent payment.
+5. **Tier-redaction e2e**: hit the report endpoint as free vs premium vs pro, assert protected keys absent for the wrong tier (not just unit-level).
+
+### Codex's todos (write/mutation core — owns the endpoints)
+1. **Generate & commit the Prisma migration** for the 7-table schema (Claude created one locally as `questionnaire_engine`; Codex should own the canonical migration in its branch so `migrate deploy` works in CI).
+2. **JWT auth endpoints** — `/api/v1/auth/register` + `/login`, bcrypt, access 2h / refresh 7d, Bearer middleware, `/users/me`. (Claude's e2e tests #4 depend on these.)
+3. **Assessment endpoints** — POST create (draft), GET progress recovery, PATCH step submit (answer upsert + sequential `step==current+1` else 400 + required-missing 422 + optimistic `version`), GET `/questionnaires/{id}`. State machine draft→in_progress→completed.
+4. **Report endpoint** — wire DB → `scoring-adapter` → `scoreAssessment` → `buildReport(scored, tier)` (Claude's modules are ready; just call them). Idempotent (cache in `assessments.report` / `report_generated`).
+5. **Subscription + mock payment** — POST create (pending), HMAC-SHA256 callback verify, status→active in same tx as `users.subscription_tier`, GET `/subscriptions/me`. Idempotent callback; bad signature → 403.
+6. **Seed** — one published questionnaire (8 steps, dimensions physical/mental/sleep, likert_5 + options) so endpoints and e2e tests have data.
+
+### Sync points / don't-collide
+- **Codex owns** the canonical migration, all `app/api/v1/**` route handlers, auth, seed. **Claude owns** all of `tests/**`, CI, README, and the scoring/report modules (already done).
+- Each route Codex commits unblocks the matching Claude e2e test — land them incrementally, not in one big batch.
+- **Re-run a migration after pulling each other's schema changes** so the live Supabase stays in sync (Claude's local DB currently holds the `questionnaire_engine` migration).
+
+---
+
 ## ⚠️ Critical finding: both prior implementations drifted from TASK.md
 
 `TASK.md` specifies a **questionnaire scoring engine**, but both earlier attempts built a **BMI calculator** instead. They are different products. Before writing more code, realign to `TASK.md`.
