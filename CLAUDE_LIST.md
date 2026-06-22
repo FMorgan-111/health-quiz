@@ -4,6 +4,19 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ---
 
+## ✅ DONE by Claude (committed to `main`) — scoring + report + unit tests
+
+The derived/verification layer that doesn't depend on the DB is **built, tested (24/24 green), typechecked**:
+
+- **`lib/scoring.ts`** — `scoreAssessment(questions, answers)`: likert/choice answers → per-dimension 0–100 scores → overall + level. Pure, no DB/Prisma. Defines its own input contract (`ScoringQuestion{id,dimension,type,required,maxValue}`, `ScoringAnswer{questionId,value}`) — **Codex: adapt DB rows to these shapes; don't make me import Prisma types.** Note `ScoringQuestion.id` matches `ScoringAnswer.questionId`.
+- **`lib/report.ts`** — `buildReport(scored, tier)`: tier-gated redaction. free → 2 recs + `premium_extra:null`; premium → `{trend_analysis}`; pro → `+peer_comparison +pdf_url`. Protected keys are **absent** from the object, not hidden. Report shape matches TASK.md §1.2.
+- **`tests/scoring.test.ts` + `tests/report.test.ts`** — boundary coverage (empty/null/NaN/Infinity/over-max/negative/missing/zero-max/text-only) + tier redaction asserting protected keys absent. `npm test` runs them (`vitest.config.ts` added; `test`/`test:watch`/`test:coverage` scripts in package.json).
+- **Bug caught by tests (proof tests earn their keep)**: scoring initially looked up answers by `q.questionId` (undefined on the question object) instead of `q.id` — every score silently returned 0. A "click it locally" check would have shipped it.
+
+**Codex wiring**: in the report endpoint, map the DB questionnaire+answers to `ScoringQuestion[]`/`ScoringAnswer[]`, call `scoreAssessment`, then `buildReport(scored, user.subscription_tier)`. The tier→redaction is already handled — don't re-redact downstream.
+
+---
+
 ## ⚠️ Critical finding: both prior implementations drifted from TASK.md
 
 `TASK.md` specifies a **questionnaire scoring engine**, but both earlier attempts built a **BMI calculator** instead. They are different products. Before writing more code, realign to `TASK.md`.
