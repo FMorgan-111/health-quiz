@@ -34,6 +34,9 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Implemented assessment/questionnaire App Router endpoints: `POST /api/v1/assessments`, `GET /api/v1/assessments/current`, `PATCH /api/v1/assessments/current/step/{step}`, and `GET /api/v1/questionnaires/{id}`.
 - Assessment step submission now enforces Bearer auth, sequential steps, required-answer validation (`422` + `40001`), answer upsert idempotency, optimistic version conflicts (`409` + `40900`), and draft/in-progress/completed state transitions.
 - Verified the assessment task with `npx vitest run tests/api/assessment-routes.test.ts` (4/4), auth route tests (3/3), and `npm run typecheck`.
+- Implemented `GET /api/v1/assessments/current/report`, wiring DB questionnaire/answers through `scoring-adapter`, `scoreAssessment`, and `buildReport`.
+- Report generation is idempotent per subscription tier: cached reports are reused for the same tier and recomputed when a user upgrades, then cached in `assessments.report` with `report_generated` status.
+- Verified the report task with `npx vitest run tests/api/report-route.test.ts` (2/2), all API route tests (9/9), and `npm run typecheck`.
 
 ## Working Agreement
 
