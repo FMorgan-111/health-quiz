@@ -40,6 +40,9 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Implemented subscription and mock payment endpoints: `POST /api/v1/subscriptions`, `GET /api/v1/subscriptions/me`, and HMAC-verified `POST /api/v1/subscriptions/callback`.
 - Payment callback activation updates `subscriptions.status=active` and `users.subscription_tier` in one transaction, treats repeated callbacks as idempotent, and rejects bad signatures with `403` + `40300`.
 - Verified the subscription task with `npx vitest run tests/api/subscription-routes.test.ts` (3/3), all API route tests (12/12), and `npm run typecheck`.
+- Added an idempotent Prisma seed runner (`prisma/seed.ts`) and seed data for one published 8-step questionnaire across `physical`, `mental`, and `sleep`, with likert_5 questions and five ordered options each.
+- Wired seed execution through `npm run seed` and Prisma's `prisma.seed` package config.
+- Verified the seed task with `npx vitest run tests/seed/questionnaire-seed.test.ts` (2/2) and `npm run typecheck`; seed execution itself was not run because this worktree has no live `DATABASE_URL`.
 
 ## Working Agreement
 
