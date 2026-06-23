@@ -1,7 +1,5 @@
-// 客户端 API 封装：统一信封 {code,message,data}，自动带 Bearer。
-// 错误码镜像 lib/api/envelope.ts（前端不 import 服务端模块以避免打包牵连）。
-
-import { getAccessToken } from "./auth";
+// 客户端 API 封装：统一信封 {code,message,data}。
+// 鉴权走 httpOnly cookie（同源自动携带），无需手动加 header/token。
 
 export const API_CODES = {
   OK: 0,
@@ -32,24 +30,20 @@ export class ApiError extends Error {
 interface RequestOptions {
   method?: string;
   body?: unknown;
-  auth?: boolean; // 是否附带 Bearer，默认 true
 }
 
 export async function apiFetch<T>(
   path: string,
-  { method = "GET", body, auth = true }: RequestOptions = {},
+  { method = "GET", body }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (auth) {
-    const token = getAccessToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  }
 
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: "same-origin",
   });
 
   let envelope: Envelope<T>;

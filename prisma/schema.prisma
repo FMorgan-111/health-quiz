@@ -1,3 +1,6 @@
+// 对齐 TASK.md §4 的三表模型：sessions / results / subscriptions
+// 录入字段全 nullable（分步增量保存）；version 乐观锁；UUID 主键。
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,156 +11,80 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum SubscriptionTier {
-  free
-  premium
-  pro
+enum Gender {
+  male
+  female
+  other
+}
+
+enum Goal {
+  lose_weight
+  gain_muscle
+  stay_fit
+  improve_health
+}
+
+enum ActivityLevel {
+  sedentary
+  light
+  moderate
+  active
+  very_active
 }
 
 enum SubscriptionStatus {
-  pending
+  none
   active
-  canceled
 }
 
-enum QuestionnaireStatus {
-  draft
-  published
-  archived
-}
+model Session {
+  id             String         @id @default(uuid()) @db.Uuid
+  // 预留：未来接入注册/登录时，把匿名 session 关联到注册用户。本期不用。
+  userId         String?        @map("user_id") @db.Uuid
+  gender         Gender?
+  goal           Goal?
+  age            Int?
+  heightCm       Float?         @map("height_cm")
+  weightKg       Float?         @map("weight_kg")
+  targetWeightKg Float?         @map("target_weight_kg")
+  activityLevel  ActivityLevel? @map("activity_level")
+  currentStep    Int            @default(0) @map("current_step")
+  completed      Boolean        @default(false)
+  version        Int            @default(0)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-enum AssessmentStatus {
-  draft
-  in_progress
-  completed
-  report_generated
-  abandoned
-}
-
-enum QuestionType {
-  likert_5
-  single_choice
-  multi_choice
-  text
-}
-
-model User {
-  id               String           @id @default(uuid()) @db.Uuid
-  email            String           @unique
-  passwordHash     String           @map("password_hash")
-  subscriptionTier SubscriptionTier @default(free) @map("subscription_tier")
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  assessments  Assessment[]
+  result       Result?
   subscription Subscription?
 
-  @@map("users")
+  @@map("sessions")
 }
 
-model Questionnaire {
-  id          String              @id @default(uuid()) @db.Uuid
-  slug        String              @unique
-  title       String
-  description String?
-  version     Int                 @default(1)
-  status      QuestionnaireStatus @default(draft)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+model Result {
+  id              String   @id @default(uuid()) @db.Uuid
+  sessionId       String   @unique @map("session_id") @db.Uuid
+  bmi             Float
+  bmiCategory     String   @map("bmi_category")
+  dailyCalories   Int      @map("daily_calories")
+  // 受保护字段：非会员的 result 响应里不出现
+  targetDate      DateTime @map("target_date") @db.Timestamptz(6)
+  projectionCurve Json     @map("projection_curve")
+  computedAt      DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
 
-  questions   Question[]
-  assessments Assessment[]
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@map("questionnaires")
-}
-
-model Question {
-  id              String        @id @default(uuid()) @db.Uuid
-  questionnaireId String        @map("questionnaire_id") @db.Uuid
-  step            Int
-  order           Int
-  prompt          String
-  dimension       String
-  type            QuestionType
-  required        Boolean       @default(true)
-  maxValue        Int           @default(5) @map("max_value")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  options       Option[]
-  answers       AssessmentAnswer[]
-
-  @@index([questionnaireId, step])
-  @@unique([questionnaireId, order])
-  @@map("questions")
-}
-
-model Option {
-  id         String   @id @default(uuid()) @db.Uuid
-  questionId String   @map("question_id") @db.Uuid
-  label      String
-  value      Int
-  order      Int
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@unique([questionId, order])
-  @@map("options")
-}
-
-model Assessment {
-  id              String           @id @default(uuid()) @db.Uuid
-  userId          String           @map("user_id") @db.Uuid
-  questionnaireId String           @map("questionnaire_id") @db.Uuid
-  status          AssessmentStatus @default(draft)
-  currentStep     Int              @default(0) @map("current_step")
-  version         Int              @default(0)
-  report          Json?
-  completedAt     DateTime?        @map("completed_at") @db.Timestamptz(6)
-  reportCreatedAt DateTime?        @map("report_created_at") @db.Timestamptz(6)
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id])
-  answers       AssessmentAnswer[]
-
-  @@index([userId])
-  @@index([questionnaireId])
-  @@map("assessments")
-}
-
-model AssessmentAnswer {
-  id           String   @id @default(uuid()) @db.Uuid
-  assessmentId String   @map("assessment_id") @db.Uuid
-  questionId   String   @map("question_id") @db.Uuid
-  step         Int
-  value        Json?
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  question   Question   @relation(fields: [questionId], references: [id])
-
-  @@unique([assessmentId, questionId])
-  @@index([assessmentId, step])
-  @@map("assessment_answers")
+  @@map("results")
 }
 
 model Subscription {
-  id          String             @id @default(uuid()) @db.Uuid
-  userId      String             @unique @map("user_id") @db.Uuid
-  tier        SubscriptionTier   @default(free)
-  status      SubscriptionStatus @default(pending)
-  providerRef String?            @unique @map("provider_ref")
-  paidAt      DateTime?          @map("paid_at") @db.Timestamptz(6)
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String             @id @default(uuid()) @db.Uuid
+  sessionId String             @unique @map("session_id") @db.Uuid
+  status    SubscriptionStatus @default(none)
+  plan      String?
+  paidAt    DateTime?          @map("paid_at") @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
 }

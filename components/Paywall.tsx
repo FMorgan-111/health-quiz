@@ -1,50 +1,38 @@
 "use client";
 
 interface PaywallProps {
-  onUpgrade: (tier: "premium" | "pro") => void;
+  onUpgrade: () => void;
   busy: boolean;
+  hint?: string;
 }
 
-export default function Paywall({ onUpgrade, busy }: PaywallProps) {
+export default function Paywall({ onUpgrade, busy, hint }: PaywallProps) {
   return (
     <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-6">
       <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-indigo-600">
         解锁完整报告
       </div>
       <h3 className="mb-3 text-xl font-bold text-slate-900">
-        升级查看你的深度健康洞察
+        {hint ?? "升级查看目标达成日期与逐周预测曲线"}
       </h3>
       <ul className="mb-5 space-y-2 text-sm text-slate-600">
         <li className="flex items-center gap-2">
-          <Check /> 趋势分析（trend analysis）
+          <Check /> 预计达成目标体重的日期
         </li>
         <li className="flex items-center gap-2">
-          <Check /> 同龄人群对比（pro）
-        </li>
-        <li className="flex items-center gap-2">
-          <Check /> 完整建议清单 + PDF 报告（pro）
+          <Check /> 逐周体重预测曲线
         </li>
       </ul>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onUpgrade("premium")}
-          className="flex-1 rounded-xl border border-indigo-600 bg-white px-4 py-3 font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-50"
-        >
-          升级 Premium
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onUpgrade("pro")}
-          className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-        >
-          升级 Pro
-        </button>
-      </div>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onUpgrade}
+        className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {busy ? "处理中…" : "立即解锁（模拟支付）"}
+      </button>
       <p className="mt-3 text-center text-xs text-slate-400">
-        演示环境：点击即模拟支付成功，立即解锁。
+        演示环境：点击即模拟支付成功，立即解锁完整结果。
       </p>
     </div>
   );

@@ -3,66 +3,114 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError, API_CODES } from "../../lib/client/api";
-import { isLoggedIn, clearSession } from "../../lib/client/auth";
-import Likert from "../../components/Likert";
 import ProgressBar from "../../components/ProgressBar";
 
-interface Question {
+interface Session {
   id: string;
-  step: number;
-  order: number;
-  prompt: string;
-  dimension: string;
-  type: string;
-  maxValue: number;
-  options: { label: string; value: number; order: number }[];
+  gender: string | null;
+  goal: string | null;
+  age: number | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  targetWeightKg: number | null;
+  activityLevel: string | null;
+  currentStep: number;
+  completed: boolean;
+  version: number;
+  totalSteps: number;
 }
 
-interface Assessment {
-  id: string;
-  questionnaireId: string;
-  status: string;
-  currentStep: number;
-  version: number;
-}
+type StepDef =
+  | {
+      step: number;
+      field: string;
+      prompt: string;
+      kind: "choice";
+      options: { label: string; value: string }[];
+    }
+  | {
+      step: number;
+      field: string;
+      prompt: string;
+      kind: "number";
+      unit: string;
+      min: number;
+      max: number;
+    };
+
+const STEPS: StepDef[] = [
+  {
+    step: 1,
+    field: "gender",
+    prompt: "你的生理性别？",
+    kind: "choice",
+    options: [
+      { label: "男", value: "male" },
+      { label: "女", value: "female" },
+      { label: "其他", value: "other" },
+    ],
+  },
+  {
+    step: 2,
+    field: "goal",
+    prompt: "你的健康目标？",
+    kind: "choice",
+    options: [
+      { label: "减重", value: "lose_weight" },
+      { label: "增肌", value: "gain_muscle" },
+      { label: "保持身材", value: "stay_fit" },
+      { label: "改善健康", value: "improve_health" },
+    ],
+  },
+  { step: 3, field: "age", prompt: "你的年龄？", kind: "number", unit: "岁", min: 13, max: 120 },
+  { step: 4, field: "heightCm", prompt: "你的身高？", kind: "number", unit: "cm", min: 80, max: 250 },
+  { step: 5, field: "weightKg", prompt: "你的体重？", kind: "number", unit: "kg", min: 25, max: 400 },
+  {
+    step: 6,
+    field: "targetWeightKg",
+    prompt: "你的目标体重？",
+    kind: "number",
+    unit: "kg",
+    min: 25,
+    max: 400,
+  },
+  {
+    step: 7,
+    field: "activityLevel",
+    prompt: "你的运动频率？",
+    kind: "choice",
+    options: [
+      { label: "久坐（几乎不运动）", value: "sedentary" },
+      { label: "轻度（每周 1-3 次）", value: "light" },
+      { label: "中度（每周 3-5 次）", value: "moderate" },
+      { label: "高强度（每周 6-7 次）", value: "active" },
+      { label: "极高（体力工作/运动员）", value: "very_active" },
+    ],
+  },
+];
 
 export default function QuizPage() {
   const router = useRouter();
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
-  const [stepValue, setStepValue] = useState<number | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [choice, setChoice] = useState<string>("");
+  const [num, setNum] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // 初始化：确保登录 → 取/建 assessment → 拉题目
   useEffect(() => {
-    if (!isLoggedIn()) {
-      router.replace("/login");
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
-        let current = await getOrCreateAssessment();
-        const q = await apiFetch<{ questionnaire: { questions: Question[] } }>(
-          `/questionnaires/${current.questionnaireId}`,
-          { auth: false },
-        );
+        const s = await getOrCreateSession();
         if (cancelled) return;
-        const sorted = [...q.questionnaire.questions].sort(
-          (a, b) => a.step - b.step || a.order - b.order,
-        );
-        setQuestions(sorted);
-        setAssessment(current);
-        // 已完成 → 直接去结果
-        if (current.status === "completed" || current.status === "report_generated") {
+        if (s.completed) {
           router.replace("/result");
           return;
         }
+        setSession(s);
       } catch (err) {
-        if (cancelled) return;
-        handleFatal(err);
+        if (!cancelled) setError(err instanceof ApiError ? err.message : "加载失败");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -70,72 +118,71 @@ export default function QuizPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
   const handleFatal = useCallback(
-    (err: unknown) => {
-      if (err instanceof ApiError && err.code === API_CODES.UNAUTHORIZED) {
-        clearSession();
-        router.replace("/login");
-        return;
-      }
-      setError(err instanceof ApiError ? err.message : "加载失败，请刷新重试");
-    },
-    [router],
+    (err: unknown) => setError(err instanceof ApiError ? err.message : "出错了，请刷新重试"),
+    [],
   );
 
   if (loading) return <Centered>加载中…</Centered>;
-  if (error) return <Centered>{error}</Centered>;
-  if (!assessment || questions.length === 0)
-    return <Centered>暂无可用问卷</Centered>;
+  if (error && !session) return <Centered>{error}</Centered>;
+  if (!session) return <Centered>暂无会话</Centered>;
 
-  const totalSteps = questions[questions.length - 1].step;
-  const stepNumber = assessment.currentStep + 1; // 下一步要答的
-  const stepQuestion = questions.find((q) => q.step === stepNumber);
+  const stepNumber = session.currentStep + 1;
+  const def = STEPS.find((s) => s.step === stepNumber);
+  if (!def) return <Centered>问卷数据异常</Centered>;
 
-  if (!stepQuestion) return <Centered>问卷数据异常</Centered>;
-
-  async function submitStep() {
-    if (!assessment || !stepQuestion) return;
-    if (stepValue === null) {
-      setError("请选择一个选项");
-      return;
+  async function submit() {
+    if (!session || !def) return;
+    let value: string | number;
+    if (def.kind === "choice") {
+      if (!choice) {
+        setError("请选择一项");
+        return;
+      }
+      value = choice;
+    } else {
+      const n = Number(num);
+      if (!num || !Number.isFinite(n)) {
+        setError("请输入有效数字");
+        return;
+      }
+      if (n < def.min || n > def.max) {
+        setError(`请输入 ${def.min}–${def.max} 之间的数值`);
+        return;
+      }
+      value = def.kind === "number" && def.field === "age" ? Math.round(n) : n;
     }
+
     setError(null);
     setBusy(true);
     try {
-      const res = await apiFetch<{ assessment: Assessment }>(
-        `/assessments/current/step/${stepNumber}`,
-        {
-          method: "PATCH",
-          body: {
-            version: assessment.version,
-            answers: [{ questionId: stepQuestion.id, value: stepValue }],
-          },
-        },
+      const res = await apiFetch<{ session: Session }>(
+        `/sessions/current/step/${stepNumber}`,
+        { method: "PATCH", body: { version: session.version, data: { [def.field]: value } } },
       );
-      const updated = res.assessment;
-      setStepValue(null);
-      if (updated.status === "completed" || updated.status === "report_generated") {
+      const updated = res.session;
+      setChoice("");
+      setNum("");
+      if (updated.currentStep >= updated.totalSteps) {
+        // 最后一步完成 → 触发计算 → 去结果页
+        await apiFetch("/sessions/current/submit", { method: "POST" });
         router.push("/result");
         return;
       }
-      setAssessment(updated);
+      setSession(updated);
     } catch (err) {
       if (err instanceof ApiError && err.code === API_CODES.CONFLICT) {
-        // version 冲突：重新拉当前进度再让用户重试
         try {
-          const fresh = await apiFetch<{ assessment: Assessment }>(
-            "/assessments/current",
-          );
-          setAssessment(fresh.assessment);
-          setError("进度已更新，请重新确认本题");
+          const fresh = await apiFetch<{ session: Session }>("/sessions/current");
+          setSession(fresh.session);
+          setError("进度已更新，请重新确认本步");
         } catch (e) {
           handleFatal(e);
         }
-      } else if (err instanceof ApiError && err.status === 422) {
-        setError("请先回答必答题");
+      } else if (err instanceof ApiError && err.code === API_CODES.VALIDATION_FAILED) {
+        setError("输入不合法，请检查后重试");
       } else {
         handleFatal(err);
       }
@@ -147,44 +194,71 @@ export default function QuizPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <ProgressBar current={stepNumber} total={totalSteps} />
-        <h2 className="mb-6 mt-6 text-xl font-semibold text-slate-900">
-          {stepQuestion.prompt}
-        </h2>
-        <Likert
-          options={[...stepQuestion.options].sort((a, b) => a.order - b.order)}
-          value={stepValue}
-          onChange={setStepValue}
-        />
-        {error && (
-          <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {error}
-          </p>
+        <ProgressBar current={stepNumber} total={session.totalSteps} />
+        <h2 className="mb-6 mt-6 text-xl font-semibold text-slate-900">{def.prompt}</h2>
+
+        {def.kind === "choice" ? (
+          <div className="flex flex-col gap-2">
+            {def.options.map((opt) => {
+              const selected = choice === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setChoice(opt.value)}
+                  className={`rounded-xl border px-4 py-3 text-left font-medium transition ${
+                    selected
+                      ? "border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200"
+                      : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={num}
+              min={def.min}
+              max={def.max}
+              onChange={(e) => setNum(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              placeholder={`${def.min}–${def.max}`}
+              autoFocus
+            />
+            <span className="text-slate-500">{def.unit}</span>
+          </div>
         )}
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{error}</p>
+        )}
+
         <button
           type="button"
-          disabled={busy || stepValue === null}
-          onClick={submitStep}
+          disabled={busy}
+          onClick={submit}
           className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
         >
-          {busy ? "提交中…" : stepNumber === totalSteps ? "完成测评" : "下一步"}
+          {busy ? "提交中…" : stepNumber === session.totalSteps ? "完成并查看结果" : "下一步"}
         </button>
       </div>
     </main>
   );
 }
 
-async function getOrCreateAssessment(): Promise<Assessment> {
+async function getOrCreateSession(): Promise<Session> {
   try {
-    const res = await apiFetch<{ assessment: Assessment }>("/assessments/current");
-    return res.assessment;
+    const res = await apiFetch<{ session: Session }>("/sessions/current");
+    return res.session;
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      const created = await apiFetch<{ assessment: Assessment }>("/assessments", {
-        method: "POST",
-        body: {},
-      });
-      return created.assessment;
+    if (err instanceof ApiError && err.status === 401) {
+      const created = await apiFetch<{ session: Session }>("/sessions", { method: "POST" });
+      return created.session;
     }
     throw err;
   }
