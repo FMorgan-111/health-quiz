@@ -26,12 +26,15 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^22.10.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^2.1.8",
     "dotenv": "^16.4.7",
+    "postcss": "^8.5.15",
     "prisma": "^6.19.3",
+    "tailwindcss": "^4.3.1",
     "tsx": "^4.19.4",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
