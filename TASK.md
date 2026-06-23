@@ -195,27 +195,4 @@
 - [ ] README 说明测试覆盖范围
 - [ ] 公网部署
 
----
 
-## 六、Codex 远程版 vs 本地版对比
-
-| 维度       | Codex 已做（远程）                                           | 本地版（`/mnt/e/hermes-work/health-quiz/`）               |
-| ---------- | ------------------------------------------------------------ | --------------------------------------------------------- |
-| 路由风格   | Pages Router                                                 | **App Router** ✅ 更现代                                  |
-| API 路径   | `/api/v1/assessments/...`，复数资源名，统一信封              | `/api/session`、`/api/quiz/[step]`，扁平结构              |
-| 数据库     | Neon（serverless Postgres）                                   | **Supabase** Postgres                                     |
-| ORM        | Prisma 7 + Neon adapter                                      | Prisma 6                                                  |
-| 持久化     | in-memory（还没接真 DB）                                     | **Prisma + Postgres 真连接** ✅                            |
-| 并发控制   | 未提及                                                       | **乐观锁 version 字段** ✅                                |
-| 校验       | 未提及                                                       | **Zod + enum 白名单 + 数值边界 + 目标体重合理性** ✅      |
-| 计算逻辑   | 未提及                                                       | **纯函数 + 依赖注入 now 参数** ✅                          |
-| 差异化返回 | 未提及                                                       | **toFullResult / toPublicResult 字段级脱敏** ✅           |
-| 幂等       | 未提及                                                       | **已计算 session 直接返回已有结果** ✅                     |
-| 事务       | 未提及                                                       | **$transaction 三条写操作原子** ✅                         |
-| 测试       | Vitest + Playwright                                          | **未写测试** ❌                                           |
-
-**总结：**
-
-- 本地版工程成熟度更高（真 DB、乐观锁、脱敏、事务、幂等），但 API 路径偏离 RESTful 规范且零测试
-- Codex 版 API 设计更规范（版本前缀 + 统一信封 + 复数资源名），但没接真数据库
-- **合并方向：** 本地版骨架（App Router + 乐观锁 + 脱敏 + 纯函数计算） + Codex 版 API 规范（`/api/v1/` + 统一信封）+ 补齐测试
