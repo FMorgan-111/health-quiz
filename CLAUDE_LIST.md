@@ -4,6 +4,17 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ---
 
+## 📅 TOMORROW — 2026-06-24 待办（明天拆任务）
+
+对照 TASK.md 逐条核对后剩下的 4 项（核心功能已 100% 符合，这些是质量/交付物缺口 + 打磨）：
+
+1. **写正经 README** — 项目说明 + API 文档 + **测试覆盖矩阵**（覆盖了哪些场景、为什么、哪些没覆盖及原因）。TASK.md 第四阶段明确要求；当前 README 仍是脚手架模板，只有 CI badge。
+2. **加非法/越界输入测试** — Zod 越界拦截 → 40001 的测试覆盖（age 13-120 / height 80-250 / weight 25-400 等边界 + 非法值）。TASK.md §5.2 要求"对这些情况有测试覆盖"，目前缺。
+3. **加 `/pay` 端到端测试** — 脱敏 result → POST /pay → 完整 result 的自动化测试。逻辑已验证（手动冒烟 + 直查库），但没写成自动化。
+4. **美化前端** — 整体美化（方向明天定：配色/排版/动效/landing 设计感/结果页丰富度等）。
+
+---
+
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
 ### 2026-06-23 — ⚠️ REWORKED to BMI assessment per TASK.md + redeployed
