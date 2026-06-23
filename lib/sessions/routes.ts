@@ -52,6 +52,19 @@ export async function createSession(): Promise<Response> {
   );
 }
 
+// POST /sessions/reset — 清除当前会话 cookie，让用户从头开始（不删库里的旧数据）
+export async function resetSession(): Promise<Response> {
+  const res = json(ok({ reset: true }));
+  res.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return res;
+}
+
 // GET /sessions/current — 当前进度（进度恢复）
 export async function getCurrent(): Promise<Response> {
   const session = await getCurrentSession();

@@ -120,6 +120,21 @@ export default function ResultPage() {
         {error && (
           <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
         )}
+
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await apiFetch("/sessions/reset", { method: "POST" });
+            } catch {
+              /* 忽略，仍跳转 */
+            }
+            router.push("/quiz");
+          }}
+          className="mt-6 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+        >
+          重新测评
+        </button>
       </div>
     </main>
   );
