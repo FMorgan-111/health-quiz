@@ -1,170 +1,143 @@
-import { describe, it, expect, afterEach, afterAll } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { prisma } from "./db";
-import { createUser, createQuestionnaire, cleanup } from "./helpers";
+import { compute } from "../../lib/health/compute";
 
-// 跟踪本文件创建的实体，afterEach 清理
-const users: string[] = [];
-const questionnaires: string[] = [];
+// 直接对 DB 验证 TASK.md §一/§三：分步保存、进度恢复、乐观锁、脱敏依据、/pay 后状态。
+// 不经 HTTP（cookie 层在 e2e 验），这里验持久化与计算落库的正确性。
+
+const created: string[] = [];
 
 afterEach(async () => {
-  await cleanup(users.splice(0), questionnaires.splice(0));
+  if (created.length) {
+    await prisma.session.deleteMany({ where: { id: { in: created } } });
+    created.length = 0;
+  }
 });
 
-afterAll(async () => {
-  await prisma.$disconnect();
-});
-
-async function freshAssessment() {
-  const user = await createUser();
-  users.push(user.id);
-  const q = await createQuestionnaire();
-  questionnaires.push(q.id);
-  const assessment = await prisma.assessment.create({
-    data: { userId: user.id, questionnaireId: q.id, status: "draft" },
-  });
-  return { user, questionnaire: q, assessment };
+async function newSession() {
+  const s = await prisma.session.create({ data: {} });
+  created.push(s.id);
+  return s;
 }
 
-describe("分步保存 · 答案幂等 upsert（@@unique[assessmentId, questionId]）", () => {
-  it("重复提交同一题 → 覆盖而非新增，且只有一行", async () => {
-    const { questionnaire, assessment } = await freshAssessment();
-    const q1 = questionnaire.questions[0];
+describe("分步增量保存 + 进度恢复", () => {
+  it("逐步写入字段，currentStep 与 version 递进", async () => {
+    const s = await newSession();
+    expect(s.currentStep).toBe(0);
+    expect(s.version).toBe(0);
 
-    const upsertAnswer = (value: number) =>
-      prisma.assessmentAnswer.upsert({
-        where: { assessmentId_questionId: { assessmentId: assessment.id, questionId: q1.id } },
-        create: { assessmentId: assessment.id, questionId: q1.id, step: q1.step, value },
-        update: { value },
-      });
-
-    await upsertAnswer(3);
-    await upsertAnswer(5); // 重复提交，新值
-
-    const rows = await prisma.assessmentAnswer.findMany({
-      where: { assessmentId: assessment.id, questionId: q1.id },
+    const r1 = await prisma.session.updateMany({
+      where: { id: s.id, version: 0 },
+      data: { gender: "male", currentStep: 1, version: { increment: 1 } },
     });
-    expect(rows).toHaveLength(1); // 没有重复行
-    expect(rows[0].value).toBe(5); // 覆盖为最新值
+    expect(r1.count).toBe(1);
+
+    const after = await prisma.session.findUnique({ where: { id: s.id } });
+    expect(after?.gender).toBe("male");
+    expect(after?.currentStep).toBe(1);
+    expect(after?.version).toBe(1);
   });
 
-  it("并发 upsert 同一题 → 最终一致，仍只有一行", async () => {
-    const { questionnaire, assessment } = await freshAssessment();
-    const q1 = questionnaire.questions[0];
-
-    const upsertAnswer = (value: number) =>
-      prisma.assessmentAnswer.upsert({
-        where: { assessmentId_questionId: { assessmentId: assessment.id, questionId: q1.id } },
-        create: { assessmentId: assessment.id, questionId: q1.id, step: q1.step, value },
-        update: { value },
-      });
-
-    // 并发 5 次写同一题
-    const results = await Promise.allSettled([1, 2, 3, 4, 5].map(upsertAnswer));
-    // 唯一约束保证不会产生多行；个别并发可能因竞争失败，但绝不重复
-    const rows = await prisma.assessmentAnswer.findMany({
-      where: { assessmentId: assessment.id, questionId: q1.id },
+  it("进度恢复：重新读回已填字段与步数", async () => {
+    const s = await newSession();
+    await prisma.session.update({
+      where: { id: s.id },
+      data: { gender: "female", goal: "lose_weight", age: 28, currentStep: 3, version: 3 },
     });
-    expect(rows).toHaveLength(1);
-    expect(results.some((r) => r.status === "fulfilled")).toBe(true);
+    const recovered = await prisma.session.findUnique({ where: { id: s.id } });
+    expect(recovered?.currentStep).toBe(3);
+    expect(recovered?.gender).toBe("female");
+    expect(recovered?.age).toBe(28);
   });
 });
 
-describe("乐观锁 · 并发推进 current_step（version 字段）", () => {
-  it("两次基于同一 version 的更新，只有一个成功", async () => {
-    const { assessment } = await freshAssessment();
-    expect(assessment.version).toBe(0);
-
-    const advance = (fromVersion: number, step: number) =>
-      prisma.assessment.updateMany({
-        where: { id: assessment.id, version: fromVersion },
-        data: { currentStep: step, version: { increment: 1 }, status: "in_progress" },
-      });
-
-    // 两个并发请求都拿到 version=0
-    const [a, b] = await Promise.all([advance(0, 1), advance(0, 2)]);
-
-    // 只有一个 count=1 命中，另一个 count=0（版本已被抢走）
-    expect(a.count + b.count).toBe(1);
-
-    const after = await prisma.assessment.findUnique({ where: { id: assessment.id } });
-    expect(after!.version).toBe(1); // 只 +1，没有双写
+describe("乐观锁并发提交", () => {
+  it("同一 version 两次更新，只有一个成功", async () => {
+    const s = await newSession();
+    const [a, b] = await Promise.all([
+      prisma.session.updateMany({
+        where: { id: s.id, version: 0 },
+        data: { currentStep: 1, version: { increment: 1 } },
+      }),
+      prisma.session.updateMany({
+        where: { id: s.id, version: 0 },
+        data: { currentStep: 1, version: { increment: 1 } },
+      }),
+    ]);
+    expect(a.count + b.count).toBe(1); // 只有一个命中 version=0
   });
 
-  it("用过期 version 更新 → 命中 0 行（409 的 DB 依据）", async () => {
-    const { assessment } = await freshAssessment();
-    // 先正常推进一次
-    await prisma.assessment.update({
-      where: { id: assessment.id },
-      data: { version: { increment: 1 }, currentStep: 1 },
-    });
-    // 再用旧 version=0 更新
-    const stale = await prisma.assessment.updateMany({
-      where: { id: assessment.id, version: 0 },
-      data: { currentStep: 2, version: { increment: 1 } },
+  it("过期 version 更新命中 0 行（409 的 DB 依据）", async () => {
+    const s = await newSession();
+    await prisma.session.update({ where: { id: s.id }, data: { version: 5 } });
+    const stale = await prisma.session.updateMany({
+      where: { id: s.id, version: 0 },
+      data: { currentStep: 1 },
     });
     expect(stale.count).toBe(0);
   });
 });
 
-describe("级联删除 · 删 user 带走其测评与答案", () => {
-  it("删除 user 后 assessment 与 answers 一并消失", async () => {
-    const { user, questionnaire, assessment } = await freshAssessment();
-    const q1 = questionnaire.questions[0];
-    await prisma.assessmentAnswer.create({
-      data: { assessmentId: assessment.id, questionId: q1.id, step: q1.step, value: 4 },
+describe("计算落库 + 脱敏依据 + /pay", () => {
+  it("submit 计算结果写入 results；订阅默认 none；pay 后 active", async () => {
+    const s = await newSession();
+    const input = {
+      gender: "male" as const,
+      goal: "lose_weight" as const,
+      age: 30,
+      heightCm: 180,
+      weightKg: 90,
+      targetWeightKg: 80,
+      activityLevel: "moderate" as const,
+    };
+    const computed = compute(input, new Date("2026-01-01T00:00:00.000Z"));
+
+    await prisma.$transaction(async (tx) => {
+      await tx.result.create({
+        data: {
+          sessionId: s.id,
+          bmi: computed.bmi,
+          bmiCategory: computed.bmiCategory,
+          dailyCalories: computed.dailyCalories,
+          targetDate: computed.targetDate,
+          projectionCurve: computed.projectionCurve as unknown as object,
+        },
+      });
+      await tx.session.update({ where: { id: s.id }, data: { completed: true } });
+      await tx.subscription.create({ data: { sessionId: s.id, status: "none" } });
     });
 
-    await prisma.user.delete({ where: { id: user.id } });
-    // 从 users[] 移除，避免 afterEach 重复删
-    users.splice(users.indexOf(user.id), 1);
+    const withRel = await prisma.session.findUnique({
+      where: { id: s.id },
+      include: { result: true, subscription: true },
+    });
+    expect(withRel?.result?.bmi).toBe(27.8);
+    expect(withRel?.subscription?.status).toBe("none"); // 非会员依据
 
-    expect(await prisma.assessment.findUnique({ where: { id: assessment.id } })).toBeNull();
-    expect(
-      await prisma.assessmentAnswer.findMany({ where: { assessmentId: assessment.id } }),
-    ).toHaveLength(0);
+    // /pay → active
+    await prisma.subscription.update({
+      where: { sessionId: s.id },
+      data: { status: "active", paidAt: new Date() },
+    });
+    const paid = await prisma.subscription.findUnique({ where: { sessionId: s.id } });
+    expect(paid?.status).toBe("active"); // 会员依据 → result 解锁
   });
-});
 
-describe("唯一约束 · 一人一订阅 / 邮箱唯一", () => {
-  it("同一 user 建两条 subscription → 第二条违反 @unique(userId) 抛错", async () => {
-    const user = await createUser();
-    users.push(user.id);
-    await prisma.subscription.create({ data: { userId: user.id, tier: "premium", status: "active" } });
-    await expect(
-      prisma.subscription.create({ data: { userId: user.id, tier: "pro", status: "active" } }),
-    ).rejects.toThrow();
-  });
-
-  it("重复 email → 违反 @unique 抛错", async () => {
-    const user = await createUser();
-    users.push(user.id);
-    await expect(
-      prisma.user.create({ data: { email: user.email, passwordHash: "y".repeat(20) } }),
-    ).rejects.toThrow();
-  });
-});
-
-describe("进度恢复 · 读回已填进度", () => {
-  it("中断后按 current_step + 已答数恢复", async () => {
-    const { questionnaire, assessment } = await freshAssessment();
-    const [q1, q2] = questionnaire.questions;
-    await prisma.assessmentAnswer.createMany({
-      data: [
-        { assessmentId: assessment.id, questionId: q1.id, step: q1.step, value: 5 },
-        { assessmentId: assessment.id, questionId: q2.id, step: q2.step, value: 3 },
-      ],
+  it("级联删除：删 session 带走 result 与 subscription", async () => {
+    const s = await prisma.session.create({ data: {} });
+    await prisma.result.create({
+      data: {
+        sessionId: s.id,
+        bmi: 22,
+        bmiCategory: "正常",
+        dailyCalories: 2000,
+        targetDate: new Date(),
+        projectionCurve: [] as unknown as object,
+      },
     });
-    await prisma.assessment.update({
-      where: { id: assessment.id },
-      data: { currentStep: 1, status: "in_progress" },
-    });
-
-    const recovered = await prisma.assessment.findUnique({
-      where: { id: assessment.id },
-      include: { answers: true },
-    });
-    expect(recovered!.status).toBe("in_progress");
-    expect(recovered!.currentStep).toBe(1);
-    expect(recovered!.answers).toHaveLength(2);
+    await prisma.subscription.create({ data: { sessionId: s.id } });
+    await prisma.session.delete({ where: { id: s.id } });
+    expect(await prisma.result.findUnique({ where: { sessionId: s.id } })).toBeNull();
+    expect(await prisma.subscription.findUnique({ where: { sessionId: s.id } })).toBeNull();
   });
 });
