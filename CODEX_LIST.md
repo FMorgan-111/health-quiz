@@ -31,6 +31,9 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Implemented JWT auth support for App Router: `/api/v1/auth/register`, `/api/v1/auth/login`, Bearer-token `/api/v1/users/me`, bcryptjs password hashing, 2h access tokens, 7d refresh tokens, and shared request authentication middleware.
 - Added the scoring adapter contract module needed by Claude's integration tests (`lib/contracts/scoring-adapter.ts`).
 - Verified the auth task with `npx vitest run tests/api/auth-routes.test.ts` (3/3), `npx vitest run tests/codex-contracts/scoring-adapter.test.ts` (3/3), and `npm run typecheck`.
+- Implemented assessment/questionnaire App Router endpoints: `POST /api/v1/assessments`, `GET /api/v1/assessments/current`, `PATCH /api/v1/assessments/current/step/{step}`, and `GET /api/v1/questionnaires/{id}`.
+- Assessment step submission now enforces Bearer auth, sequential steps, required-answer validation (`422` + `40001`), answer upsert idempotency, optimistic version conflicts (`409` + `40900`), and draft/in-progress/completed state transitions.
+- Verified the assessment task with `npx vitest run tests/api/assessment-routes.test.ts` (4/4), auth route tests (3/3), and `npm run typecheck`.
 
 ## Working Agreement
 
