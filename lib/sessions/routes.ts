@@ -87,9 +87,9 @@ export async function submitStep(
   if (!Number.isInteger(step) || step < 1 || step > TOTAL_STEPS)
     return json(err(ERROR_CODES.VALIDATION_FAILED, "invalid step"), 400);
 
-  // 顺序提交：必须是 currentStep + 1
-  if (step !== session.currentStep + 1)
-    return json(err(ERROR_CODES.VALIDATION_FAILED, "steps must be submitted sequentially"), 400);
+  // 防跳步：不能提交比"下一步"更靠后的步骤；允许回填/重提已答步骤（回退编辑）
+  if (step > session.currentStep + 1)
+    return json(err(ERROR_CODES.VALIDATION_FAILED, "cannot skip steps"), 400);
 
   let body: { version: number; data: Record<string, unknown> };
   try {
@@ -104,10 +104,14 @@ export async function submitStep(
     return json(err(ERROR_CODES.VALIDATION_FAILED, "invalid field value"), 400);
   const fieldData = parsed.data as Record<string, unknown>;
 
-  // 乐观锁更新
+  // 乐观锁更新；currentStep 取 max，回退编辑不让进度倒退
   const updated = await prisma.session.updateMany({
     where: { id: session.id, version: body.version },
-    data: { ...fieldData, currentStep: step, version: { increment: 1 } },
+    data: {
+      ...fieldData,
+      currentStep: Math.max(session.currentStep, step),
+      version: { increment: 1 },
+    },
   });
   if (updated.count === 0)
     return json(err(ERROR_CODES.CONFLICT, "version conflict"), 409);
