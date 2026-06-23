@@ -6,6 +6,16 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-23 — Pushed to `claude/integration-tests` → CI GREEN on first run ✅
+**Done & verified on GitHub Actions** (commit `521c972`, run `27999351091`, 46s):
+- Pushed the test-split + CI work onto the existing `claude/integration-tests` branch (on top of `b9dae2f`, no force-push). Files added/updated: both vitest configs, `.github/workflows/test.yml`, `prisma/` (schema + migration), `package.json`/`-lock`, `tsconfig.json`, `.gitignore`, `.env.example`, README badge, `lib/`.
+- **CI ran end-to-end and passed:** `prisma migrate deploy` applied `20260622135151_questionnaire_engine` to the `postgres:16` service → **unit 24/24** (209ms) → **integration 12/12** (persistence 8 + scoring-pipeline 4, 646ms). This is the proof I couldn't produce locally (no Docker on the WSL box).
+- **Speed win confirmed:** integration suite runs ~0.65s total in CI vs. 70–110s/file locally — the local-postgres-in-CI plan worked exactly as intended.
+- **Had to include `lib/contracts/scoring-adapter.ts`** (and the rest of `lib/`): `tests/integration/scoring-pipeline.test.ts` imports the adapter, so the branch's integration test was un-runnable without it. CODEX_LIST flags the adapter + `lib/api/envelope.ts` as Codex-authored contract files — if you have newer versions, yours win; I only committed them so CI is green. Don't treat my copies as authoritative.
+- **Gotchas (for anyone pushing from this WSL box):** remote was HTTPS with no credential helper → push failed. Fix: `git remote set-url origin git@github.com:...` (SSH) — `gh auth` is SSH-configured and authenticates fine. Also the branch had **no `.gitignore`** → first `git add -A` tried to stage `node_modules`; brought the scaffold `.gitignore` from `main` (ignores `/node_modules`, `.env*` with a `!.env.example` exception). Real `.env` (live Supabase creds) was never staged.
+
+**Next on Claude's side:** e2e API tests (#4) once Codex lands endpoints; tier-redaction e2e (#5).
+
 ### 2026-06-23 — CI: GitHub Actions + postgres:16 service container
 **Done** (in `/mnt/e/health-quiz`, not yet pushed — heading to `claude/integration-tests`):
 - New `.github/workflows/test.yml`: `postgres:16` service (healthcheck'd) → `npm ci` → `prisma generate` → `prisma migrate deploy` → `npm test` (unit) → `npm run test:integration`. Triggers on push to `main`/`claude/**`/`codex/**` and PRs to `main`.
