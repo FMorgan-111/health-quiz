@@ -6,6 +6,24 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-23 — ⚠️ REWORKED to BMI assessment per TASK.md + redeployed
+**Root correction:** the entire prior build (questionnaire scoring engine — Codex's backend + my frontend) had drifted from TASK.md. The early `CLAUDE_LIST` decision "rebuild to questionnaire engine" **read TASK.md backwards** — TASK.md §1/§2 specify a **BMI health-assessment funnel** (gender/goal/age/height/weight/target/activity → BMI + Mifflin-St Jeor calories + target date + projection curve), not a likert questionnaire. User caught it. Reworked the whole stack to spec (PR #5, merged `c14afc6`).
+
+**What changed:**
+- **Schema** (TASK.md §4): dropped the 7-table questionnaire model; rebuilt as **sessions / results / subscriptions** (nullable input fields, version optimistic lock, UUID PKs). New migration `20260623000000_bmi_sessions`.
+- **Auth** (§3.3): replaced JWT register/login with **httpOnly cookie Session ID** (no login). `sessions.user_id` reserved nullable for future login.
+- **Routes** (§3.1): `/sessions`, `/sessions/current`, `/sessions/current/step/{step}` (Zod per-step + optimistic lock 409), `/sessions/current/submit` (compute→results→completed), `/sessions/current/result` (redacted), `/pay`.
+- **Compute** (§2): BMI + Mifflin-St Jeor + target date + weekly projection curve (pure fn, injected now).
+- **Redaction** (§3): non-member result omits `target_date` + `projection_curve` (absent, not null).
+- **Frontend**: landing + 7-step quiz (progress recovery, 409 retry) + result (BmiGauge + ProjectionChart + paywall→/pay). Login page removed.
+- **Deleted**: all JWT/questionnaire code (lib/auth, lib/assessments, lib/scoring, lib/report, lib/contracts, seed) + bcryptjs/jose/tsx.
+
+**Verified:** `npm run build` (10 routes); `npm test` 12/12 (compute math + redaction); CI green on PR #5 — migrate deploy + unit + integration (persistence/optimistic-lock/cascade) on postgres against new schema.
+
+**Deployed:** merged to main → **`prisma migrate reset` on prod Supabase** (dropped old 7 tables, applied new 3-table schema — demo DB, no real data, explicit user consent; Prisma's AI-agent safeguard required it) → redeployed Vercel. Live at https://health-quiz-six.vercel.app (alias → `health-quiz-5i13x2wa9`). Smoke verification pending (WSL box can't reach *.vercel.app outbound — user verifies in browser).
+
+**Note for Codex:** the BMI model is now the source of truth on `main`. The old questionnaire branches (`codex/type-interface-alignment`, `claude/integration-tests`) and Codex's scoring/auth code are superseded — do not build on them.
+
 ### 2026-06-23 — DEPLOYED to public URL ✅ → https://health-quiz-six.vercel.app
 **Live and smoke-verified.** TASK.md's hard deliverable (public, demoable URL) is met.
 - **Merged to `main`:** PR #3 (`codex/type-interface-alignment` → `main`, merge `1d5f109`). `main` CI green. codex was a strict superset of main, no conflicts, no lingering old files.
