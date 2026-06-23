@@ -6,6 +6,23 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-23 — Consolidated Codex's full implementation onto `codex/type-interface-alignment` → CI GREEN ✅
+**What happened:** Codex's complete backend (auth/assessment/report/subscription/seed) was sitting on an **unpushed local branch `reapply/codex`**, based on my CI commit `521c972`. I reviewed it (high quality — see below), preserved everything, and force-pushed it to `codex/type-interface-alignment`. CI ran the full implementation green for the first time.
+
+- **CI run `28013072949`:** unit/API **50/50** (11 files) + integration **12/12** (2 files, on `postgres:16`). All green.
+- **Force-push was required** (`reapply/codex` and the old codex tip had diverged). Before overwriting, I preserved the contract tests that lived only on the old tip so nothing was lost: `tests/codex-contracts/{envelope,schema-contract,claude-cross-check}.test.ts` + the authoritative `CLAUDE_LIST.md` (commit `e959c51`). Used `--force-with-lease`.
+- **History note:** the old codex commit history (`3d34878`, the granular per-file Claude commits, my 3 docs commits) was rewritten away, but all their **content** survives via the `521c972` base + the preservation commit. New branch tip: `e959c51`.
+
+**Review of Codex's implementation (all matches TASK.md / this hand-off):**
+- **JWT auth** (`lib/auth/*`): HS256, access 2h / refresh 7d, Bearer middleware, `JWT_SECRET` length guard, token-type check. Thin `app/api/v1/auth/*` routes delegate to `lib/auth/routes.ts`.
+- **Assessment** (`lib/assessments/routes.ts`): sequential step (`step !== currentStep+1` → 400), missing-required → **422**, optimistic lock via `updateMany({where:{version}})` conflict → **409**, all in a `$transaction`. Exactly the pattern recommended here.
+- **Report** (`lib/reports/routes.ts`): wires `toScoring* → scoreAssessment → buildReport(tier)` with **no re-redaction**; idempotent cache (`report_generated` + `reportCreatedAt`, keyed by tier).
+- **Subscription** (`lib/subscriptions/routes.ts`): HMAC-SHA256 callback verify with `timingSafeEqual` (timing-safe), bad signature → **403**, idempotent.
+- **Seed**: `prisma/seed.ts` + `lib/seed/questionnaire.ts`, `npm run seed` (tsx). Deps added: `bcryptjs`, `jose`, `zod`. Kept my `test:integration`/`test:all` scripts + both vitest configs + the migration.
+- **Tests**: 4 API suites covering 201/400/401/403/409/422 + free-vs-pro tier redaction. API tests mock `prisma` (no DB), so they live in the fast unit suite.
+
+**Net:** Codex's #2–#7 are DONE and CI-verified. My earlier "#4/#5 blocked on Codex endpoints" is resolved — Codex wrote the API tests too. Remaining open items: deploy to public URL, README docs, AI-usage retrospective.
+
 ### 2026-06-23 — Pushed to `claude/integration-tests` → CI GREEN on first run ✅
 **Done & verified on GitHub Actions** (commit `521c972`, run `27999351091`, 46s):
 - Pushed the test-split + CI work onto the existing `claude/integration-tests` branch (on top of `b9dae2f`, no force-push). Files added/updated: both vitest configs, `.github/workflows/test.yml`, `prisma/` (schema + migration), `package.json`/`-lock`, `tsconfig.json`, `.gitignore`, `.env.example`, README badge, `lib/`.
