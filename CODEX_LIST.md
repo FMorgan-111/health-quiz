@@ -37,6 +37,9 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Implemented `GET /api/v1/assessments/current/report`, wiring DB questionnaire/answers through `scoring-adapter`, `scoreAssessment`, and `buildReport`.
 - Report generation is idempotent per subscription tier: cached reports are reused for the same tier and recomputed when a user upgrades, then cached in `assessments.report` with `report_generated` status.
 - Verified the report task with `npx vitest run tests/api/report-route.test.ts` (2/2), all API route tests (9/9), and `npm run typecheck`.
+- Implemented subscription and mock payment endpoints: `POST /api/v1/subscriptions`, `GET /api/v1/subscriptions/me`, and HMAC-verified `POST /api/v1/subscriptions/callback`.
+- Payment callback activation updates `subscriptions.status=active` and `users.subscription_tier` in one transaction, treats repeated callbacks as idempotent, and rejects bad signatures with `403` + `40300`.
+- Verified the subscription task with `npx vitest run tests/api/subscription-routes.test.ts` (3/3), all API route tests (12/12), and `npm run typecheck`.
 
 ## Working Agreement
 
