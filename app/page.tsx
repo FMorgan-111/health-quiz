@@ -1,4 +1,4 @@
-import StartButton from "../components/StartButton";
+import Link from "next/link";
 
 export default function LandingPage() {
   return (
@@ -16,7 +16,12 @@ export default function LandingPage() {
           填写几项身体数据，我们会即时计算你的 BMI、每日建议摄入热量，
           并为你预测达成目标体重的时间线。无需注册，进度自动保存。
         </p>
-        <StartButton />
+        <Link
+          href="/quiz"
+          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
+        >
+          开始 / 继续测评 →
+        </Link>
         <div className="mt-8 flex flex-wrap items-center gap-6 text-sm text-slate-500">
           <span>✓ 即时 BMI</span>
           <span>✓ 热量建议</span>
