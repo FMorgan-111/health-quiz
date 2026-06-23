@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, ApiError, API_CODES } from "../../lib/client/api";
 import BmiGauge from "../../components/BmiGauge";
 import ProjectionChart from "../../components/ProjectionChart";
+import PlanSummary from "../../components/PlanSummary";
 import Paywall from "../../components/Paywall";
 
 interface ProjectionPoint {
@@ -96,18 +97,22 @@ export default function ResultPage() {
         {result.locked ? (
           <Paywall onUpgrade={pay} busy={paying} hint={result.upgrade_hint} />
         ) : (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-            <h2 className="mb-2 font-bold text-emerald-900">目标达成预测</h2>
-            {result.target_date && (
-              <p className="mb-4 text-slate-700">
-                预计达成目标日期：
-                <span className="font-semibold">
-                  {new Date(result.target_date).toLocaleDateString("zh-CN")}
-                </span>
-              </p>
-            )}
-            {result.projection_curve && result.projection_curve.length > 0 && (
-              <ProjectionChart points={result.projection_curve} />
+          <div className="animate-[fadeUp_0.4s_ease-out]">
+            <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-emerald-800">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-sm text-white">
+                ✓
+              </span>
+              <span className="font-semibold">完整报告已解锁</span>
+            </div>
+            <h2 className="mb-4 text-lg font-bold text-slate-900">你的专属目标计划</h2>
+            {result.target_date && result.projection_curve && result.projection_curve.length > 0 ? (
+              <>
+                <PlanSummary points={result.projection_curve} targetDate={result.target_date} />
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-slate-700">体重变化预测</h3>
+                <ProjectionChart points={result.projection_curve} />
+              </>
+            ) : (
+              <p className="text-slate-600">当前体重已是目标体重，继续保持即可 👍</p>
             )}
           </div>
         )}
