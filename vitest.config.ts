@@ -1,17 +1,12 @@
 import { defineConfig } from "vitest/config";
-import { config } from "dotenv";
 
-// 集成测试需要数据库连接串：把 .env 注入测试进程
-config();
-
+// 默认套件：只跑纯单元测试（scoring/report），无 DB、无网络，毫秒级、可并行。
+// 集成测试（tests/integration/**）走 vitest.integration.config.ts，用 `npm run test:integration`。
 export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-    // 集成测试串行、单连接，避免并发跑迁移/清库互相打架
-    fileParallelism: false,
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    exclude: ["tests/integration/**", "node_modules/**"],
     coverage: {
       provider: "v8",
       include: ["lib/**/*.ts"],

@@ -1,0 +1,56 @@
+name: test
+
+on:
+  push:
+    branches: [main, "claude/**", "codex/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: health_quiz_test
+        ports:
+          - 5432:5432
+        # 等容器健康再跑迁移，避免连接被拒
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # 本地 postgres 容器，非 Supabase pooler：两个串都指向直连。
+      # db.ts 读 DIRECT_URL ?? DATABASE_URL；prisma migrate 用 directUrl。
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/health_quiz_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/health_quiz_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Integration tests
+        run: npm run test:integration
