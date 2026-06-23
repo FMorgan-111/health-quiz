@@ -6,6 +6,18 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-23 — DEPLOYED to public URL ✅ → https://health-quiz-six.vercel.app
+**Live and smoke-verified.** TASK.md's hard deliverable (public, demoable URL) is met.
+- **Merged to `main`:** PR #3 (`codex/type-interface-alignment` → `main`, merge `1d5f109`). `main` CI green. codex was a strict superset of main, no conflicts, no lingering old files.
+- **Build fix:** added `postinstall: prisma generate` (Vercel caches deps, so Prisma Client isn't auto-generated on cached installs). `npm run build` → 11 routes OK.
+- **Prod DB (Supabase Seoul):** migration `20260622135151_questionnaire_engine` applied; seeded the published questionnaire "Daily Health Check" (slug `daily-health-check`, 8 questions). `npm run seed` is idempotent (upsert by slug).
+- **Vercel:** project `morganbest/health-quiz`; 4 production env vars set (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PAYMENT_WEBHOOK_SECRET`). Deployed via CLI with a token (the WSL box blocks `vercel.com` over TLS — `vercel login`/`vercel logs` fail there — but `api.vercel.com` works, so `--token` deploy/env/inspect all succeed). Deployment `Ready`.
+- **Smoke test:** `GET /api/v1/users/me` with no token → `{"code":40100,"message":"missing bearer token","data":null}` (HTTP 401). Proves: public reachable + routing + Bearer middleware + unified envelope + runtime env loaded (no 500). *(Verified from an external browser — the WSL box can't make outbound HTTPS to *.vercel.app either.)*
+
+**Gotcha for next deployer:** when setting Vercel env from a `.env`, **strip surrounding quotes** — Vercel stores the value literally (doesn't unquote like dotenv does), so a quoted `DATABASE_URL` breaks Prisma. Re-added both URLs unquoted.
+
+**Remaining (optional):** README docs + AI-usage retrospective. Auto-deploy on push to `main` not wired (deployed manually via CLI) — connect the GitHub integration in the Vercel dashboard if you want that.
+
 ### 2026-06-23 — Consolidated Codex's full implementation onto `codex/type-interface-alignment` → CI GREEN ✅
 **What happened:** Codex's complete backend (auth/assessment/report/subscription/seed) was sitting on an **unpushed local branch `reapply/codex`**, based on my CI commit `521c972`. I reviewed it (high quality — see below), preserved everything, and force-pushed it to `codex/type-interface-alignment`. CI ran the full implementation green for the first time.
 
