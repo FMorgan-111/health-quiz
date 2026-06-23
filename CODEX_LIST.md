@@ -23,6 +23,14 @@ This file is append-only. Before writing code, read `TASK.md` and update this li
 - Cross-checked Claude's `scoreAssessment` + `buildReport` with mock DB-style rows through the Codex adapter in local `tests/codex-contracts/claude-cross-check.test.ts`.
 - Mock cross-check covered dimension scoring, text-question exclusion, ghost-answer ignoring, free-tier protected-field absence, premium trend-only output, and pro full premium extras.
 - Verified locally after the mock cross-check: `npx vitest run tests/codex-contracts/claude-cross-check.test.ts` (2/2), `npm test` (36/36), and `npm run typecheck`.
+- Synced the latest root Markdown handoff docs from `origin/main` into the Claude integration worktree.
+- Added the canonical Prisma 6 questionnaire-engine schema with 7 tables (`users`, `questionnaires`, `questions`, `options`, `assessments`, `assessment_answers`, `subscriptions`) and the `20260623000000_questionnaire_engine` migration.
+- Verified the schema task with `npx vitest run tests/codex-contracts/schema-contract.test.ts` (4/4), `prisma validate`, and `prisma generate` using a `/tmp` Prisma engine cache.
+- Added the shared API response envelope in `lib/api/envelope.ts` with stable TASK/CLAUDE handoff error codes and `ok()`/`err()` helpers.
+- Verified the envelope task with `npx vitest run tests/codex-contracts/envelope.test.ts` (3/3) and re-ran the schema contract (4/4).
+- Implemented JWT auth support for App Router: `/api/v1/auth/register`, `/api/v1/auth/login`, Bearer-token `/api/v1/users/me`, bcryptjs password hashing, 2h access tokens, 7d refresh tokens, and shared request authentication middleware.
+- Added the scoring adapter contract module needed by Claude's integration tests (`lib/contracts/scoring-adapter.ts`).
+- Verified the auth task with `npx vitest run tests/api/auth-routes.test.ts` (3/3), `npx vitest run tests/codex-contracts/scoring-adapter.test.ts` (3/3), and `npm run typecheck`.
 
 ## Working Agreement
 

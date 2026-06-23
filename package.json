@@ -2,18 +2,23 @@
   "name": "health-quiz",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:all": "vitest run && vitest run --config vitest.integration.config.ts"
+    "test:all": "vitest run && vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.3",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -26,6 +31,7 @@
     "@vitest/coverage-v8": "^4.1.9",
     "dotenv": "^16.6.1",
     "prisma": "^6.19.3",
+    "tsx": "^4.19.4",
     "typescript": "^5",
     "vitest": "^4.1.9"
   }
