@@ -2,13 +2,13 @@
 // 分步增量保存 + 乐观锁 version + submit 触发计算 + result 差异化。
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { ERROR_CODES, err, ok } from "../api/envelope";
 import { prisma } from "../db";
 import { SESSION_COOKIE } from "../session/cookie";
 import { getCurrentSession, isMember } from "../session/store";
 import { compute, type ComputeInput } from "../health/compute";
 import { viewResult } from "../health/result-view";
+import { stepSchemas, stepBodySchema, TOTAL_STEPS } from "./validation";
 
 function json<T>(body: T, status = 200): NextResponse<T> {
   return NextResponse.json(body, { status });
@@ -25,23 +25,6 @@ function withSessionCookie<T>(res: NextResponse<T>, sessionId: string): NextResp
   });
   return res;
 }
-
-// —— 分步字段校验（TASK.md §5.2：挡住非法数值/越界） ——
-const stepSchemas: Record<number, z.ZodTypeAny> = {
-  1: z.object({ gender: z.enum(["male", "female", "other"]) }),
-  2: z.object({ goal: z.enum(["lose_weight", "gain_muscle", "stay_fit", "improve_health"]) }),
-  3: z.object({ age: z.number().int().min(13).max(120) }),
-  4: z.object({ heightCm: z.number().min(80).max(250) }),
-  5: z.object({ weightKg: z.number().min(25).max(400) }),
-  6: z.object({ targetWeightKg: z.number().min(25).max(400) }),
-  7: z.object({ activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]) }),
-};
-const TOTAL_STEPS = 7;
-
-const stepBodySchema = z.object({
-  version: z.number().int().min(0),
-  data: z.record(z.string(), z.unknown()),
-});
 
 // POST /sessions — 新建会话，种 cookie
 export async function createSession(): Promise<Response> {
