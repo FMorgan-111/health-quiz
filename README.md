@@ -115,6 +115,7 @@ CI（`.github/workflows/test.yml`）在每次 push / PR 时拉起 `postgres:16` 
 | 脱敏单元 | `tests/result-view.test.ts` | 非会员 result **不含** `target_date`/`projection_curve`（断言属性不存在）；会员含完整字段；`viewResult` 按会员身份切换 | 脱敏是「拿不到」而非「不显示」，必须断言受保护字段在对象里**缺席** |
 | 输入校验单元 | `tests/validation.test.ts` | 每步 Zod schema 的合法边界放行 + 越界/非法/缺失/类型错误（NaN/Infinity/小数/字符串/null）拦截；enum 白名单；请求体信封 `{version,data}` | TASK.md §5.2「接口要挡住非法数值注入与越界输入，并对这些情况有测试覆盖」；不经 HTTP 直测 schema，快且穷尽边界 |
 | 持久化集成 | `tests/integration/persistence.test.ts` | 分步写入 → `currentStep`/`version` 递进；进度恢复读回；乐观锁并发只有一个成功 / 过期 version 命中 0 行；计算落库；级联删除 | 这些是 DB 语义（事务/并发/外键），mock 测不出来，必须打真库 |
+| 分步流程集成 | `tests/integration/step-flow.test.ts` | 经**真实 `submitStep` handler**：跳步/越界 step/字段越界 → 400；顺序推进 `currentStep`+`version` 递进；回退重提已答步（不倒退、version 自增）；重复提交幂等；过期 version → 409；并发同 version 只一个成功；无会话 401 | TASK.md §四明确要求「乱序/重复提交」的集成测试；持久化套件直打 DB 绕过了 handler 分支，这里补上经 handler 的拦截/冲突逻辑 |
 | /pay 端到端集成 | `tests/integration/pay-e2e.test.ts` | 经**真实 route handler**跑「脱敏 result → POST /pay → 完整 result」：非会员脱敏 → 支付翻转 `active`+`premium` → 会员解锁；支付幂等；解锁字段等于落库值（非伪造）；无会话 401；未完成 409 | TASK.md §5.2「支付回调端到端」；mock `next/headers` 的 cookie 层指向真库 session，从而不开浏览器也能验证服务端「会员才解锁」的完整链路 |
 
 ### 没覆盖的部分及原因

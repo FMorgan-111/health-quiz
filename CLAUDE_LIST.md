@@ -17,6 +17,12 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-24 — ➕ 补 step-flow 端到端测试（§四「乱序/重复提交」最后缺口）
+复查 TASK.md §四发现：要求的集成测试里「中断后恢复 ✅、并发更新 ✅」已覆盖，但**「乱序/重复提交」零覆盖**——`submitStep` handler（防跳步 400、回退重提、version 冲突 409）从没被任何测试经过（`persistence.test.ts` 直接打 DB `updateMany`，绕过了 handler 分支）。
+- 新增 `tests/integration/step-flow.test.ts`（9 用例）：经**真实 submitStep handler**（mock cookie 指向真库 session，同 pay-e2e 手法）覆盖：跳步/越界 step/字段越界 → 400/40001；顺序推进 currentStep+version 递进；回退重提已答步（currentStep 不倒退、version 仍自增）；重复提交幂等；过期 version → 409/40900；并发同 version 只一个成功另一个 409；无 cookie → 401/40100。
+- 验证：step-flow **9/9** 绿（首跑遇 2 个 `Can't reach database server`/超时——WSL→Supabase pooler 瞬时抖动，重跑全绿；CI 用本地 postgres container 无此问题）。`typecheck` 干净，`npm test` 单元 33/33 不变。
+- 至此 TASK.md §四四类集成用例全齐：中断恢复 / 乱序·重复 / 并发 / 鉴权差异化 / 支付 e2e。
+
 ### 2026-06-24 — ✅ 收尾四项（QA + README + UI）→ PR #10
 对照 2026-06-24 四项待办全部完成，开在 `claude/qa-and-readme`（基于 `origin/main`），PR #10 → main。
 
