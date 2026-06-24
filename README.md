@@ -8,6 +8,8 @@
 
 🔗 **在线 Demo：** https://health-quiz.top  （备用：https://health-quiz-six.vercel.app）
 
+📝 **AI 使用复盘：** 见 [AI_USAGE.md](./AI_USAGE.md)
+
 ---
 
 ## 技术栈
