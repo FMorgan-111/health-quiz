@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stepSchemas, stepBodySchema } from "../lib/sessions/validation";
+import { stepSchemas, stepBodySchema, checkGoalWeightConsistency } from "../lib/sessions/validation";
 
 // TASK.md §5.2：接口要挡住非法数值注入与越界输入（越界/非法 → 40001），并有测试覆盖。
 // 这里直接断言分步 Zod schema 的边界：合法边界放行、越界/非法/缺失/类型错误拦截。
@@ -102,5 +102,31 @@ describe("请求体信封 stepBodySchema", () => {
     expect(stepBodySchema.safeParse({ version: -1, data: {} }).success).toBe(false);
     expect(stepBodySchema.safeParse({ version: 1.5, data: {} }).success).toBe(false);
     expect(stepBodySchema.safeParse({ version: 0 }).success).toBe(false);
+  });
+});
+
+describe("goal × 目标体重 跨字段一致性 checkGoalWeightConsistency", () => {
+  it("减重：目标 ≥ 当前 → 矛盾（返回提示）", () => {
+    expect(checkGoalWeightConsistency("lose_weight", 77, 80)).toMatch(/减重/);
+    expect(checkGoalWeightConsistency("lose_weight", 77, 77)).toMatch(/减重/); // 相等也算不合理
+  });
+  it("减重：目标 < 当前 → 放行（null）", () => {
+    expect(checkGoalWeightConsistency("lose_weight", 77, 70)).toBeNull();
+  });
+  it("增肌：目标 ≤ 当前 → 矛盾", () => {
+    expect(checkGoalWeightConsistency("gain_muscle", 77, 70)).toMatch(/增肌/);
+    expect(checkGoalWeightConsistency("gain_muscle", 77, 77)).toMatch(/增肌/);
+  });
+  it("增肌：目标 > 当前 → 放行", () => {
+    expect(checkGoalWeightConsistency("gain_muscle", 77, 85)).toBeNull();
+  });
+  it("stay_fit / improve_health：任意方向都放行", () => {
+    expect(checkGoalWeightConsistency("stay_fit", 77, 90)).toBeNull();
+    expect(checkGoalWeightConsistency("stay_fit", 77, 60)).toBeNull();
+    expect(checkGoalWeightConsistency("improve_health", 77, 90)).toBeNull();
+  });
+  it("缺 goal 或 当前体重 → 不拦（放行）", () => {
+    expect(checkGoalWeightConsistency(null, 77, 80)).toBeNull();
+    expect(checkGoalWeightConsistency("lose_weight", null, 80)).toBeNull();
   });
 });
