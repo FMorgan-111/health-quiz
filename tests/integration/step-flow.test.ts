@@ -76,6 +76,48 @@ describe("跳步拦截", () => {
   });
 });
 
+describe("goal × 目标体重 跨字段一致性（第 6 步，经 handler 强制）", () => {
+  // 填到第 5 步（goal + 当前体重已落库），返回最新 version
+  async function fillThroughWeight(goal: string, weightKg: number) {
+    await newSession();
+    let v = 0;
+    v = (await patchStep(1, v, { gender: "male" })).env.data.session.version;
+    v = (await patchStep(2, v, { goal })).env.data.session.version;
+    v = (await patchStep(3, v, { age: 30 })).env.data.session.version;
+    v = (await patchStep(4, v, { heightCm: 180 })).env.data.session.version;
+    v = (await patchStep(5, v, { weightKg })).env.data.session.version;
+    return v;
+  }
+
+  it("减重却目标体重更高 → 400 / 40001 + 中文提示", async () => {
+    const v = await fillThroughWeight("lose_weight", 77);
+    const r = await patchStep(6, v, { targetWeightKg: 80 });
+    expect(r.status).toBe(400);
+    expect(r.env.code).toBe(40001);
+    expect(r.env.message).toMatch(/减重/);
+  });
+
+  it("减重且目标体重更低 → 200 放行", async () => {
+    const v = await fillThroughWeight("lose_weight", 77);
+    const r = await patchStep(6, v, { targetWeightKg: 70 });
+    expect(r.status).toBe(200);
+  });
+
+  it("增肌却目标体重更低 → 400 / 40001", async () => {
+    const v = await fillThroughWeight("gain_muscle", 77);
+    const r = await patchStep(6, v, { targetWeightKg: 70 });
+    expect(r.status).toBe(400);
+    expect(r.env.code).toBe(40001);
+    expect(r.env.message).toMatch(/增肌/);
+  });
+
+  it("stay_fit 任意目标方向 → 200 放行", async () => {
+    const v = await fillThroughWeight("stay_fit", 77);
+    const r = await patchStep(6, v, { targetWeightKg: 90 });
+    expect(r.status).toBe(200);
+  });
+});
+
 describe("顺序推进 + 重复/回退重提", () => {
   it("逐步提交 1→2→3，currentStep 与 version 递进", async () => {
     await newSession();

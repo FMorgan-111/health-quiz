@@ -8,7 +8,7 @@ import { SESSION_COOKIE } from "../session/cookie";
 import { getCurrentSession, isMember } from "../session/store";
 import { compute, type ComputeInput } from "../health/compute";
 import { viewResult } from "../health/result-view";
-import { stepSchemas, stepBodySchema, TOTAL_STEPS } from "./validation";
+import { stepSchemas, stepBodySchema, TOTAL_STEPS, checkGoalWeightConsistency } from "./validation";
 
 function json<T>(body: T, status = 200): NextResponse<T> {
   return NextResponse.json(body, { status });
@@ -86,6 +86,16 @@ export async function submitStep(
   if (!parsed.success)
     return json(err(ERROR_CODES.VALIDATION_FAILED, "invalid field value"), 400);
   const fieldData = parsed.data as Record<string, unknown>;
+
+  // 第 6 步（目标体重）跨字段校验：与已填的 goal/当前体重方向一致
+  if (step === 6) {
+    const conflict = checkGoalWeightConsistency(
+      session.goal,
+      session.weightKg,
+      fieldData.targetWeightKg as number,
+    );
+    if (conflict) return json(err(ERROR_CODES.VALIDATION_FAILED, conflict), 400);
+  }
 
   // 乐观锁更新；currentStep 取 max，回退编辑不让进度倒退
   const updated = await prisma.session.updateMany({

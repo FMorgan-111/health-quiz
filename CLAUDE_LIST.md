@@ -17,6 +17,20 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-24 — ➕ goal × 目标体重 跨字段一致性校验
+用户实测发现：选「减重」却把目标体重设得比当前更高，照样通过（compute 只看当前↔目标差值与方向，不校验与 goal 是否一致）。补一条跨字段校验。
+- `lib/sessions/validation.ts` 新增纯函数 `checkGoalWeightConsistency(goal, weightKg, targetWeightKg)`：减重却目标≥当前 / 增肌却目标≤当前 → 返回中文提示；`stay_fit`/`improve_health` 不限方向；缺 goal 或 weightKg 放行。
+- `submitStep`（routes.ts）第 6 步在 Zod 校验后调用它，矛盾 → `40001` + 该中文 message（**后端强制**，真正 enforcement + 测试对象）。
+- `app/quiz/page.tsx` 提交第 6 步前用**同一函数**做客户端即时提示（session 已有 goal/weightKg）。前端 import `lib/sessions/validation` 会把 zod 带进客户端 bundle，demo 体量可忽略，换单一事实源。
+- 测试：`validation.test.ts` +6 单测；`step-flow.test.ts` +4 集成。验证：typecheck 干净；单元 **39/39**；step-flow 集成 **13/13**；build 11 路由 OK。
+- **已知边界**（未做）：仅第 6 步拦截；若回退把 goal 改成与已填目标体重矛盾（step 2 编辑）当前不拦——次要边界，未来可在 step 2/5 复用同一函数。
+
+### 2026-06-24 — 🚀 部署生产：新渐变 UI 上线
+合并 PR #10 → main 后部署生产。链接 `morganbest/health-quiz`，`vercel pull` 拉生产环境变量（4 个关键变量齐全），`vercel deploy --prod` → READY。正式别名 `health-quiz-six.vercel.app` 已指向本次部署。
+- **坑**：本地 `main` 一直停在脚手架首提交 `c7bbf96`（从没同步过 origin/main，历史分叉）；`git checkout main` 把工作区变成脚手架。`git reset --hard origin/main` 对齐（本地 main 无价值，工作全在 origin）。
+- **坑**：WSL 这台 `vercel pull/deploy` 非交互模式必须显式 `--scope morganbest`（CLAUDE_LIST 早记：连不上 vercel.com 交互登录，只能 token + scope）。
+- 注：环境变量里有 `ENABLE_DEV_PAY`，控制 `/pay` 模拟支付——线上 /pay 行为以此为准。
+
 ### 2026-06-24 — 🔧 修集成测试本地偶发假失败（pooler → 直连）
 根因：pay-e2e / step-flow 经 `lib/db` 单例走 `DATABASE_URL`（Supabase pooler，`pgbouncer + connection_limit=1`），对交互式 `$transaction` 不稳 + WSL→Seoul 网络往返慢，偶发 `Can't reach database server` / 超时。`persistence.test.ts` 走 `DIRECT_URL` 就稳。
 - 新增 `tests/integration/setup.ts`（vitest `setupFiles`）：在 worker 里、任何 test import `lib/db` 之前把 `DATABASE_URL = DIRECT_URL`，让经真实 handler 的 e2e 也走 5432 直连。CI 里两串本就相同 → no-op。

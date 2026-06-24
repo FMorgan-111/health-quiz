@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError, API_CODES } from "../../lib/client/api";
+import { checkGoalWeightConsistency } from "../../lib/sessions/validation";
 import ProgressBar from "../../components/ProgressBar";
 
 interface Session {
@@ -171,6 +172,14 @@ export default function QuizPage() {
       if (n < def.min || n > def.max) {
         setError(`请输入 ${def.min}–${def.max} 之间的数值`);
         return;
+      }
+      // 第 6 步目标体重：与已选 goal/当前体重方向一致（即时提示，后端同样强制）
+      if (def.field === "targetWeightKg") {
+        const conflict = checkGoalWeightConsistency(session.goal, session.weightKg, n);
+        if (conflict) {
+          setError(conflict);
+          return;
+        }
       }
       value = def.field === "age" ? Math.round(n) : n;
     }
