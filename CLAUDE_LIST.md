@@ -17,6 +17,12 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
 
+### 2026-06-24 — 🔧 修集成测试本地偶发假失败（pooler → 直连）
+根因：pay-e2e / step-flow 经 `lib/db` 单例走 `DATABASE_URL`（Supabase pooler，`pgbouncer + connection_limit=1`），对交互式 `$transaction` 不稳 + WSL→Seoul 网络往返慢，偶发 `Can't reach database server` / 超时。`persistence.test.ts` 走 `DIRECT_URL` 就稳。
+- 新增 `tests/integration/setup.ts`（vitest `setupFiles`）：在 worker 里、任何 test import `lib/db` 之前把 `DATABASE_URL = DIRECT_URL`，让经真实 handler 的 e2e 也走 5432 直连。CI 里两串本就相同 → no-op。
+- `vitest.integration.config.ts` 加 `setupFiles` + `retry: 2`（兜底偶发抖动）。
+- 验证：连跑两次均 **21/21** 全绿；耗时 230s → ~95s（直连快）。`typecheck` 干净。README「没覆盖及原因」末条同步更新为直连说明。
+
 ### 2026-06-24 — ➕ 补 step-flow 端到端测试（§四「乱序/重复提交」最后缺口）
 复查 TASK.md §四发现：要求的集成测试里「中断后恢复 ✅、并发更新 ✅」已覆盖，但**「乱序/重复提交」零覆盖**——`submitStep` handler（防跳步 400、回退重提、version 冲突 409）从没被任何测试经过（`persistence.test.ts` 直接打 DB `updateMany`，绕过了 handler 分支）。
 - 新增 `tests/integration/step-flow.test.ts`（9 用例）：经**真实 submitStep handler**（mock cookie 指向真库 session，同 pay-e2e 手法）覆盖：跳步/越界 step/字段越界 → 400/40001；顺序推进 currentStep+version 递进；回退重提已答步（currentStep 不倒退、version 仍自增）；重复提交幂等；过期 version → 409/40900；并发同 version 只一个成功另一个 409；无 cookie → 401/40100。

@@ -123,4 +123,4 @@ CI（`.github/workflows/test.yml`）在每次 push / PR 时拉起 `postgres:16` 
 - **前端组件 / 页面交互**：未写组件测试。评估的核心风险在后端的计算、并发、脱敏、支付链路，已被上面覆盖；前端是相对薄的展示层，端到端 UI 测试性价比低，靠手动冒烟 + 真实 Demo 验证。
 - **真实支付网关**：`/pay` 是模拟回调（直接翻转订阅状态），不接第三方支付，故无签名校验 / 回调重放等用例。
 - **登录鉴权**：本期不注册登录（匿名 cookie 会话），`users` 关联预留但未实现，故无 register/login 用例。
-- **集成测试打的是 Supabase（远端）**：本地跑较慢（每用例有网络往返）；CI 里换成本地 `postgres:16` container，秒级完成。
+- **集成测试连接**：本地经 `setupFiles` 把 `DATABASE_URL` 指向 `DIRECT_URL`（5432 直连），绕开 Supabase pooler 对交互式事务的不稳定；配 `retry: 2` 兜底偶发网络抖动。CI 里两个串都指向本地 `postgres:16` container，秒级完成。
