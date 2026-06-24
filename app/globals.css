@@ -5,7 +5,28 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply text-slate-800 antialiased;
+  /* 柔和 mint→sky 健康渐变背景，固定铺满视口 */
+  background:
+    radial-gradient(1100px 600px at 15% -10%, #d1fae5 0%, transparent 55%),
+    radial-gradient(1000px 620px at 100% 0%, #cffafe 0%, transparent 50%),
+    linear-gradient(180deg, #f0fdfa 0%, #ecfeff 45%, #f0f9ff 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* 半透明玻璃卡片：大圆角 + 柔和阴影 + 轻微毛玻璃 */
+.glass-card {
+  @apply rounded-3xl border border-white/60 bg-white/70 shadow-[0_8px_40px_-12px_rgba(13,148,136,0.25)] backdrop-blur-xl;
+}
+
+/* 渐变主按钮：emerald→teal，hover 微浮起 */
+.btn-gradient {
+  @apply bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25 transition;
+}
+.btn-gradient:not(:disabled):hover {
+  @apply from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/30;
+  transform: translateY(-1px);
 }
 
 /* 全局点击反馈：所有按钮按下时轻微缩放 + 过渡 */

@@ -215,7 +215,7 @@ export default function QuizPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="glass-card animate-[fadeUp_0.4s_ease-out] p-8">
         <ProgressBar current={viewStep} total={session.totalSteps} />
         <h2 className="mb-6 mt-6 text-xl font-semibold text-slate-900">{def.prompt}</h2>
 
@@ -230,8 +230,8 @@ export default function QuizPage() {
                   onClick={() => setChoice(opt.value)}
                   className={`rounded-xl border px-4 py-3 text-left font-medium transition ${
                     selected
-                      ? "border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200"
-                      : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200"
+                      : "border-slate-200 bg-white/60 hover:border-emerald-300 hover:bg-emerald-50/50"
                   }`}
                 >
                   {opt.label}
@@ -248,7 +248,7 @@ export default function QuizPage() {
               min={def.min}
               max={def.max}
               onChange={(e) => setNum(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded-xl border border-slate-200 bg-white/70 px-4 py-3 text-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
               placeholder={`${def.min}–${def.max}`}
               autoFocus
             />
@@ -265,7 +265,7 @@ export default function QuizPage() {
             type="button"
             disabled={busy || viewStep <= 1}
             onClick={() => setViewStep((v) => Math.max(1, v - 1))}
-            className="rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-xl border border-slate-200 bg-white/60 px-5 py-3 font-medium text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← 上一步
           </button>
@@ -273,7 +273,7 @@ export default function QuizPage() {
             type="button"
             disabled={busy}
             onClick={submit}
-            className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            className="btn-gradient flex-1 rounded-xl px-4 py-3 font-semibold disabled:opacity-50"
           >
             {busy
               ? "提交中…"

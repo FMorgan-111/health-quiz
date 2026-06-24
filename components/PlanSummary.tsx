@@ -31,7 +31,7 @@ export default function PlanSummary({
     {
       label: losing ? "预计总减重" : totalChange > 0 ? "预计总增重" : "维持体重",
       value: `${Math.abs(totalChange)} kg`,
-      accent: losing ? "text-emerald-600" : "text-indigo-600",
+      accent: losing ? "text-emerald-600" : "text-teal-600",
     },
     { label: "预计周期", value: `${weeks} 周`, accent: "text-slate-900" },
     { label: "每周目标", value: `${perWeek} kg`, accent: "text-slate-900" },
@@ -53,7 +53,7 @@ export default function PlanSummary({
         {metrics.map((m) => (
           <div
             key={m.label}
-            className="rounded-xl border border-slate-100 bg-white p-4 transition hover:border-indigo-200 hover:shadow-sm"
+            className="rounded-xl border border-slate-100 bg-white/70 p-4 transition hover:border-emerald-200 hover:shadow-sm"
           >
             <div className="text-xs text-slate-500">{m.label}</div>
             <div className={`mt-1 text-lg font-bold ${m.accent}`}>{m.value}</div>

@@ -40,12 +40,16 @@ export default function ProjectionChart({ points }: { points: Point[] }) {
   const gridY = [0, 0.25, 0.5, 0.75, 1].map((t) => PAD_Y + t * (H - 2 * PAD_Y));
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3">
+    <div className="rounded-xl border border-slate-100 bg-white/70 p-3">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="体重预测曲线">
         <defs>
           <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="lineStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#14b8a6" />
           </linearGradient>
         </defs>
 
@@ -57,7 +61,7 @@ export default function ProjectionChart({ points }: { points: Point[] }) {
         <path
           d={line}
           fill="none"
-          stroke="#4f46e5"
+          stroke="url(#lineStroke)"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -67,7 +71,7 @@ export default function ProjectionChart({ points }: { points: Point[] }) {
 
         {/* 起点 / 终点标记 */}
         <circle cx={first.x} cy={first.y} r="4" fill="#94a3b8" />
-        <circle cx={last.x} cy={last.y} r="5" fill="#4f46e5" stroke="#fff" strokeWidth="2" />
+        <circle cx={last.x} cy={last.y} r="5" fill="#10b981" stroke="#fff" strokeWidth="2" />
       </svg>
       <div className="mt-1 flex justify-between text-xs text-slate-400">
         <span>起始 {points[0].weightKg} kg</span>

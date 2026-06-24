@@ -8,8 +8,8 @@ interface PaywallProps {
 
 export default function Paywall({ onUpgrade, busy, hint }: PaywallProps) {
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-6">
-      <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-indigo-600">
+    <div className="rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6">
+      <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-emerald-600">
         解锁完整报告
       </div>
       <h3 className="mb-3 text-xl font-bold text-slate-900">
@@ -27,7 +27,7 @@ export default function Paywall({ onUpgrade, busy, hint }: PaywallProps) {
         type="button"
         disabled={busy}
         onClick={onUpgrade}
-        className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+        className="btn-gradient w-full rounded-xl px-4 py-3 font-semibold disabled:opacity-50"
       >
         {busy ? "处理中…" : "立即解锁（模拟支付）"}
       </button>
@@ -40,7 +40,7 @@ export default function Paywall({ onUpgrade, busy, hint }: PaywallProps) {
 
 function Check() {
   return (
-    <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
+    <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
       ✓
     </span>
   );
