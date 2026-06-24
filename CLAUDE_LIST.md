@@ -4,18 +4,50 @@ Companion to `CODEX_LIST.md`. Claude Code logs its analysis and hand-offs here s
 
 ---
 
-## 📅 TOMORROW — 2026-06-24 待办（明天拆任务）
+## 📅 2026-06-24 待办 — ✅ 全部完成（PR #10 `claude/qa-and-readme`）
 
 对照 TASK.md 逐条核对后剩下的 4 项（核心功能已 100% 符合，这些是质量/交付物缺口 + 打磨）：
 
-1. **写正经 README** — 项目说明 + API 文档 + **测试覆盖矩阵**（覆盖了哪些场景、为什么、哪些没覆盖及原因）。TASK.md 第四阶段明确要求；当前 README 仍是脚手架模板，只有 CI badge。
-2. **加非法/越界输入测试** — Zod 越界拦截 → 40001 的测试覆盖（age 13-120 / height 80-250 / weight 25-400 等边界 + 非法值）。TASK.md §5.2 要求"对这些情况有测试覆盖"，目前缺。
-3. **加 `/pay` 端到端测试** — 脱敏 result → POST /pay → 完整 result 的自动化测试。逻辑已验证（手动冒烟 + 直查库），但没写成自动化。
-4. **美化前端** — 整体美化（方向明天定：配色/排版/动效/landing 设计感/结果页丰富度等）。
+1. ✅ **写正经 README** — 项目说明 + API 文档 + **测试覆盖矩阵**（覆盖了哪些场景、为什么、哪些没覆盖及原因）。TASK.md 第四阶段明确要求；当前 README 仍是脚手架模板，只有 CI badge。
+2. ✅ **加非法/越界输入测试** — Zod 越界拦截 → 40001 的测试覆盖（age 13-120 / height 80-250 / weight 25-400 等边界 + 非法值）。TASK.md §5.2 要求"对这些情况有测试覆盖"，目前缺。
+3. ✅ **加 `/pay` 端到端测试** — 脱敏 result → POST /pay → 完整 result 的自动化测试。逻辑已验证（手动冒烟 + 直查库），但没写成自动化。
+4. ✅ **美化前端** — 整体美化（方向明天定：配色/排版/动效/landing 设计感/结果页丰富度等）。
 
 ---
 
 ## 🔄 PROGRESS LOG (Claude — newest first)
+
+### 2026-06-24 — 🔧 修集成测试本地偶发假失败（pooler → 直连）
+根因：pay-e2e / step-flow 经 `lib/db` 单例走 `DATABASE_URL`（Supabase pooler，`pgbouncer + connection_limit=1`），对交互式 `$transaction` 不稳 + WSL→Seoul 网络往返慢，偶发 `Can't reach database server` / 超时。`persistence.test.ts` 走 `DIRECT_URL` 就稳。
+- 新增 `tests/integration/setup.ts`（vitest `setupFiles`）：在 worker 里、任何 test import `lib/db` 之前把 `DATABASE_URL = DIRECT_URL`，让经真实 handler 的 e2e 也走 5432 直连。CI 里两串本就相同 → no-op。
+- `vitest.integration.config.ts` 加 `setupFiles` + `retry: 2`（兜底偶发抖动）。
+- 验证：连跑两次均 **21/21** 全绿；耗时 230s → ~95s（直连快）。`typecheck` 干净。README「没覆盖及原因」末条同步更新为直连说明。
+
+### 2026-06-24 — ➕ 补 step-flow 端到端测试（§四「乱序/重复提交」最后缺口）
+复查 TASK.md §四发现：要求的集成测试里「中断后恢复 ✅、并发更新 ✅」已覆盖，但**「乱序/重复提交」零覆盖**——`submitStep` handler（防跳步 400、回退重提、version 冲突 409）从没被任何测试经过（`persistence.test.ts` 直接打 DB `updateMany`，绕过了 handler 分支）。
+- 新增 `tests/integration/step-flow.test.ts`（9 用例）：经**真实 submitStep handler**（mock cookie 指向真库 session，同 pay-e2e 手法）覆盖：跳步/越界 step/字段越界 → 400/40001；顺序推进 currentStep+version 递进；回退重提已答步（currentStep 不倒退、version 仍自增）；重复提交幂等；过期 version → 409/40900；并发同 version 只一个成功另一个 409；无 cookie → 401/40100。
+- 验证：step-flow **9/9** 绿（首跑遇 2 个 `Can't reach database server`/超时——WSL→Supabase pooler 瞬时抖动，重跑全绿；CI 用本地 postgres container 无此问题）。`typecheck` 干净，`npm test` 单元 33/33 不变。
+- 至此 TASK.md §四四类集成用例全齐：中断恢复 / 乱序·重复 / 并发 / 鉴权差异化 / 支付 e2e。
+
+### 2026-06-24 — ✅ 收尾四项（QA + README + UI）→ PR #10
+对照 2026-06-24 四项待办全部完成，开在 `claude/qa-and-readme`（基于 `origin/main`），PR #10 → main。
+
+**1. 非法/越界输入测试（§5.2）**
+- 把 `stepSchemas`/`stepBodySchema`/`TOTAL_STEPS` 从 `lib/sessions/routes.ts` 抽到新模块 `lib/sessions/validation.ts`（**行为不变**，routes 改为 import），让路由与测试共用同一份 schema。
+- 新增 `tests/validation.test.ts`：每步合法边界放行 + 越界/非法（12/121/0/负数、小数/NaN/Infinity/字符串/null）/缺失拦截、enum 白名单、请求体信封 `{version,data}` 守卫。
+- `tests/compute.test.ts` 追加「极端但合法」边界（250cm/25kg、150cm/400kg、年龄 13/120、25↔400 大跨度）：结果有限、曲线收敛到目标、方向正确。
+
+**2. /pay 端到端测试**
+- `tests/integration/pay-e2e.test.ts`：经**真实 route handler**（`getResult`/`pay`/`submitSession`）跑「脱敏 result → POST /pay → 完整 result」全链路。手法：`vi.mock("next/headers")` 把 `cookies()` 指向我们在真库建好的 session（共用 `lib/db` 单例），不开浏览器即可 e2e 验证「会员才解锁」。断言：非会员脱敏(locked) → 支付翻转 `active`+`premium` → 解锁 `target_date`/`projection_curve`、支付幂等、解锁字段等于落库行（非伪造）、无会话 401、未完成 409。
+  - **坑**：原想用 `computedAt` 复算 compute 来比对 `target_date`，但 `submitSession` 用 `new Date()` 算、`computedAt` 由 PG `@default(now())` 落，两者差几百 ms。改为直接断言「解锁字段 == results 行存的值」——这才是正确不变量。
+
+**3. README** — 重写：项目概述、技术栈、核心设计、本地运行、完整 `/api/v1` 接口表 + 错误码表 + 分步字段边界表、**测试覆盖矩阵**（5 套件逐行：覆盖什么/为什么这样测）+「没覆盖及原因」（前端组件、真实支付网关、登录鉴权、集成测试打远端）。
+
+**4. 前端美化（健康活力渐变）** — indigo/slate 扁平 → mint→sky 渐变背景 + 玻璃卡片（`.glass-card`）+ emerald/teal 渐变按钮（`.btn-gradient`，hover 微浮起）。landing hero 重做、quiz/result 玻璃卡 + 入场动画、全部组件（ProgressBar/Paywall/PlanSummary/ProjectionChart）统一 emerald/teal。layout title/description 同步改为 BMI（旧问卷文案残留）。纯样式/文案，逻辑结构不变。
+
+**验证**：`typecheck` 干净；`npm test` 单元 **33/33**；`npm run test:integration` **12/12**（6 持久化 + 6 /pay e2e，打 Supabase Seoul，~90s）；`npm run build` 11 路由 OK。
+
+**给 Codex 的提醒**：分步 Zod schema 现在在 `lib/sessions/validation.ts`（不再内联于 routes.ts）——改校验规则改这里，routes 与 validation.test 都吃这份。
 
 ### 2026-06-23 — ⚠️ REWORKED to BMI assessment per TASK.md + redeployed
 **Root correction:** the entire prior build (questionnaire scoring engine — Codex's backend + my frontend) had drifted from TASK.md. The early `CLAUDE_LIST` decision "rebuild to questionnaire engine" **read TASK.md backwards** — TASK.md §1/§2 specify a **BMI health-assessment funnel** (gender/goal/age/height/weight/target/activity → BMI + Mifflin-St Jeor calories + target date + projection curve), not a likert questionnaire. User caught it. Reworked the whole stack to spec (PR #5, merged `c14afc6`).

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Health Quiz · 每日健康测评",
-  description: "8 步快速测评，了解你的身体、心理与睡眠健康。",
+  title: "Health Quiz · BMI 健康评估",
+  description: "几步快速测评，算出你的 BMI、每日建议热量与专属目标计划。",
 };
 
 export default function RootLayout({

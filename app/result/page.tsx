@@ -79,15 +79,15 @@ export default function ResultPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-1 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
+      <div className="glass-card animate-[fadeUp_0.4s_ease-out] p-8">
+        <div className="mb-2 inline-flex rounded-full bg-emerald-100/70 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
           {result.locked ? "免费版报告" : "完整报告"}
         </div>
         <h1 className="mb-6 text-2xl font-bold text-slate-900">你的健康测评结果</h1>
 
         <BmiGauge bmi={result.bmi} category={result.bmi_category} />
 
-        <div className="my-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+        <div className="my-6 rounded-xl border border-emerald-100/70 bg-emerald-50/40 p-4">
           <div className="text-sm text-slate-500">每日建议摄入热量</div>
           <div className="text-2xl font-bold text-slate-900">
             {result.daily_calories.toLocaleString()} <span className="text-base font-normal">kcal</span>
@@ -131,7 +131,7 @@ export default function ResultPage() {
             }
             router.push("/quiz");
           }}
-          className="mt-6 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+          className="mt-6 w-full rounded-xl border border-slate-200 bg-white/60 px-4 py-3 font-medium text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700"
         >
           重新测评
         </button>
