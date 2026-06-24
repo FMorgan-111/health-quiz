@@ -6,7 +6,7 @@
 系统计算 **BMI**、**每日建议摄入热量**（Mifflin-St Jeor）、**目标达成日期**与**逐周体重预测曲线**。
 非会员只看到基础结果，付费后解锁目标日期与预测曲线。
 
-🔗 **在线 Demo：** https://health-quiz-six.vercel.app
+🔗 **在线 Demo：** https://health-quiz.top  （备用：https://health-quiz-six.vercel.app）
 
 ---
 
